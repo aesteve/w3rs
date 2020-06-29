@@ -1,6 +1,5 @@
+use crate::utils::zero_terminated;
 use nom::{number::complete::le_u8, IResult};
-named!(zero_terminated<&[u8], &[u8]>,
-    terminated!(take_while!(|b: u8| b != 0), tag!([0])));
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Race {

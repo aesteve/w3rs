@@ -1,12 +1,10 @@
+use crate::utils::zero_terminated;
 use hex_string::u8_to_hex_string;
 use nom::{
     number::complete::{le_u16, le_u8},
     IResult,
 };
 use std::iter::FromIterator;
-
-named!(zero_terminated<&[u8], &[u8]>,
-    terminated!(take_while!(|b: u8| b != 0), tag!([0])));
 
 named!(
     parsed_data_block<&[u8], GameBlock>,

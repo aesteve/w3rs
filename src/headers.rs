@@ -1,10 +1,8 @@
+use crate::utils::zero_terminated;
 use nom::{
     number::complete::{le_u16, le_u32},
     IResult,
 };
-
-named!(zero_terminated<&[u8], &[u8]>,
-    terminated!(take_while!(|b: u8| b != 0), tag!([0])));
 
 const REPLAY_PREFIX: &str = "Warcraft III recorded game";
 
