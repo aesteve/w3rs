@@ -8,7 +8,7 @@ use crate::gamemetadata::{
 };
 use crate::headers::parse_header;
 use crate::map::{parse_map_info, MapInfo};
-use crate::players::{parse_players, parse_players_slots, Race};
+use crate::players::{parse_players, parse_players_slots};
 use itertools::Itertools;
 use nom::lib::std::fmt::Formatter;
 use std::fmt::Display;
@@ -16,14 +16,16 @@ use std::fs::DirEntry;
 use std::{fmt, fs};
 
 use crate::datablocks::parse_game_blocks;
+use crate::race::Race;
 use colored::Colorize;
 
-pub mod compressedblocks;
+pub(crate) mod compressedblocks;
 pub mod datablocks;
 pub mod gamemetadata;
 pub mod headers;
 pub mod map;
 pub mod players;
+pub mod race;
 mod utils;
 
 #[derive(Debug)]
