@@ -121,15 +121,6 @@ fn player_chat_msg(input: &[u8]) -> IResult<&[u8], GameBlock> {
     Ok((input, block))
 }
 
-/*
-#[derive(Debug)]
-pub struct CommandDataBlock {
-    player_id: u8,
-    action_block_length: u16,
-    ignore: Vec<u8>,
-}
- */
-
 fn unknown_022(input: &[u8]) -> IResult<&[u8], GameBlock> {
     do_parse!(
         input,

@@ -13,16 +13,6 @@ pub(crate) struct CompressedDataBlock {
     pub compressed: Vec<u8>,
 }
 
-impl Debug for CompressedDataBlock {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "GameDataBlock: block_size: {},  block_decompressed_size: {}",
-            self.block_size, self.block_decompressed_size
-        )
-    }
-}
-
 impl CompressedDataBlock {
     pub fn inflate(&self) -> Result<Vec<u8>, io::Error> {
         let mut decoded = Vec::with_capacity(self.block_decompressed_size as usize);
