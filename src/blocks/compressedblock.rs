@@ -20,6 +20,14 @@ impl CompressedDataBlock {
     }
 }
 
+pub(crate) fn deflate_game(blocks: &[CompressedDataBlock]) -> Result<Vec<u8>, io::Error> {
+    let mut decoded = Vec::new();
+    for block in blocks {
+        decoded.extend(block.inflate()?);
+    }
+    Ok(decoded)
+}
+
 pub(crate) fn compressed_data_blocks(input: &[u8]) -> IResult<&[u8], Vec<CompressedDataBlock>> {
     many0(compressed_data_block)(input)
 }
@@ -41,23 +49,15 @@ fn compressed_data_block(input: &[u8]) -> IResult<&[u8], CompressedDataBlock> {
     )
 }
 
-pub(crate) fn deflate_game(blocks: &[CompressedDataBlock]) -> Result<Vec<u8>, io::Error> {
-    let mut decoded = Vec::new();
-    for block in blocks {
-        decoded.extend(block.inflate()?);
-    }
-    Ok(decoded)
-}
-
 #[cfg(test)]
 mod tests {
-    use crate::compressedblocks::{compressed_data_blocks, deflate_game};
-    use crate::headers::parse_header;
+    use crate::blocks::compressedblock::{compressed_data_blocks, deflate_game};
+    use crate::metadata::replay::parse_header;
     use nom::AsBytes;
 
     #[test]
     fn data_blocks_test() {
-        let file = include_bytes!("../replays/reforged2010.w3g").as_bytes();
+        let file = include_bytes!("../../replays/reforged2010.w3g").as_bytes();
         let (rest, headers) = parse_header(&file[..]).unwrap();
         let (rest, blocks) = compressed_data_blocks(rest).unwrap();
         assert_eq!(0, rest.len());

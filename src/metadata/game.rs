@@ -1,4 +1,4 @@
-use crate::players::{parse_player_metadata, PlayerMetaData};
+use crate::metadata::player::{parse_player_metadata, PlayerMetaData};
 use crate::utils::zero_terminated;
 use hex_string::u8_to_hex_string;
 use nom::{
@@ -96,9 +96,9 @@ pub fn parse_game_pos(input: &[u8]) -> IResult<&[u8], GamePosData> {
 
 #[cfg(test)]
 mod tests {
-    use crate::compressedblocks::{compressed_data_blocks, deflate_game};
-    use crate::gamemetadata::parse_game_metadata;
-    use crate::headers::parse_header;
+    use crate::blocks::compressedblock::{compressed_data_blocks, deflate_game};
+    use crate::metadata::game::parse_game_metadata;
+    use crate::metadata::replay::parse_header;
     use std::fs;
     use std::fs::DirEntry;
     use std::path::Path;

@@ -107,10 +107,10 @@ fn parse_player_slot_record(input: &[u8]) -> IResult<&[u8], PlayerSlotMetaData> 
 
 #[cfg(test)]
 mod tests {
-    use crate::compressedblocks::{compressed_data_blocks, deflate_game};
-    use crate::gamemetadata::parse_game_metadata;
-    use crate::headers::parse_header;
-    use crate::players::parse_players;
+    use crate::blocks::compressedblock::{compressed_data_blocks, deflate_game};
+    use crate::metadata::game::parse_game_metadata;
+    use crate::metadata::player::parse_players;
+    use crate::metadata::replay::parse_header;
     use std::fs;
     use std::fs::DirEntry;
     use std::path::Path;

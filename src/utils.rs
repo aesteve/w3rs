@@ -1,6 +1,7 @@
 named!(pub(crate) zero_terminated<&[u8], &[u8]>,
     terminated!(take_while!(|b: u8| b != 0), tag!([0])));
 
+/// See: https://gist.github.com/dengzhp/1185519#file-w3g_format-txt-L435
 pub(crate) fn decode(encoded: &[u8]) -> Vec<u8> {
     let mut decoded_string: Vec<u8> = Vec::new();
     let mut mask: usize = 0;

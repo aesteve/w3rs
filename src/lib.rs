@@ -2,29 +2,28 @@
 extern crate nom;
 extern crate colored;
 
-use crate::compressedblocks::{compressed_data_blocks, deflate_game};
-use crate::gamemetadata::{
-    parse_game_metadata, parse_game_pos, parse_start_record, GamePosData, GameStartRecord,
+use crate::blocks::{
+    compressedblock::{compressed_data_blocks, deflate_game},
+    gameblock::parse_game_blocks,
 };
-use crate::headers::parse_header;
 use crate::map::{parse_map_info, MapInfo};
-use crate::players::{parse_players, parse_players_slots};
+use crate::metadata::{
+    game::{parse_game_metadata, parse_game_pos, parse_start_record, GamePosData, GameStartRecord},
+    player::{parse_players, parse_players_slots},
+    replay::parse_header,
+};
 use itertools::Itertools;
 use nom::lib::std::fmt::Formatter;
 use std::fmt::Display;
 use std::fs::DirEntry;
 use std::{fmt, fs};
 
-use crate::datablocks::parse_game_blocks;
 use crate::race::Race;
 use colored::Colorize;
 
-pub(crate) mod compressedblocks;
-pub mod datablocks;
-pub mod gamemetadata;
-pub mod headers;
+mod blocks;
 pub mod map;
-pub mod players;
+mod metadata;
 pub mod race;
 mod utils;
 
