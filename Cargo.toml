@@ -1,0 +1,13 @@
+[package]
+name = "w3rs"
+version = "0.0.1"
+authors = ["Arnaud Esteve <arnaud.esteve@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+nom = "6.0.0-alpha1"
+hex-string = "0.1.0"
+hex = "0.4.2"
+flate2 = { version = "1.0.14", features = ["zlib"] }
+itertools = "0.9.0"
+colored = "1.9.3"
