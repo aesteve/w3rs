@@ -1,10 +1,8 @@
 use flate2::read::ZlibDecoder;
-use nom::lib::std::fmt::Formatter;
 use nom::multi::many0;
 use nom::{number::complete::le_u16, IResult};
-use std::fmt::Debug;
+use std::io;
 use std::io::Read;
-use std::{fmt, io};
 
 #[derive(PartialEq, Eq)]
 pub(crate) struct CompressedDataBlock {
