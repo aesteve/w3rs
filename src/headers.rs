@@ -7,7 +7,7 @@ use nom::{
 const REPLAY_PREFIX: &str = "Warcraft III recorded game";
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct FileMetaData {
+pub(crate) struct FileMetaData {
     pub offset: u32,
     pub compressed_size: u32,
     pub header_version: String,
@@ -17,7 +17,7 @@ pub struct FileMetaData {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct ReplayMetaData {
+pub(crate) struct ReplayMetaData {
     pub game_identifier: String,
     pub version: u32,
     pub build_no: u16,
@@ -26,7 +26,7 @@ pub struct ReplayMetaData {
     pub checksum: u32,
 }
 
-pub fn parse_header(input: &[u8]) -> IResult<&[u8], FileMetaData> {
+pub(crate) fn parse_header(input: &[u8]) -> IResult<&[u8], FileMetaData> {
     do_parse!(
         input,
         ignored: tag!(REPLAY_PREFIX)

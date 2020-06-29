@@ -8,7 +8,7 @@ use nom::{
 use std::iter::FromIterator;
 
 #[derive(Debug, PartialEq)]
-pub struct GameMetaData {
+pub(crate) struct GameMetaData {
     pub host: PlayerMetaData,
     pub game_name: String,
     pub(crate) encoded_map_info: Vec<u8>,
@@ -26,7 +26,7 @@ impl GameMetaData {
     }
 }
 
-pub fn parse_game_metadata(input: &[u8]) -> IResult<&[u8], GameMetaData> {
+pub(crate) fn parse_game_metadata(input: &[u8]) -> IResult<&[u8], GameMetaData> {
     do_parse!(
         input,
         ignored: take!(5)

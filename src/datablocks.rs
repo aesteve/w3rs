@@ -38,34 +38,34 @@ named!(
 );
 
 #[derive(Debug)]
-pub struct LeaveGameBlock {
+pub(crate) struct LeaveGameBlock {
     reason: String,
     player_id: u8,
     result: String, // .skip(4)
 }
 
 #[derive(Debug)]
-pub struct PlayerChatMsgMetadata {
+pub(crate) struct PlayerChatMsgMetadata {
     player_id: u8,
     byte_count: u16,
 }
 
 #[derive(Debug)]
-pub struct PlayerChatMsgBlock {
+pub(crate) struct PlayerChatMsgBlock {
     player_id: u8,
     kind: ChatMsgBlock,
     text: String,
 }
 
 #[derive(Debug)]
-pub enum ChatMsgBlock {
+pub(crate) enum ChatMsgBlock {
     StartupMsg,
     Msg(Addressee),
     Unknown,
 }
 
 #[derive(Debug)]
-pub enum Addressee {
+pub(crate) enum Addressee {
     All,
     Allies,
     Observers,
@@ -146,14 +146,14 @@ fn forced_game_end_cd(input: &[u8]) -> IResult<&[u8], GameBlock> {
 }
 
 #[derive(Debug)]
-pub struct TimeSlotBlock {
+pub(crate) struct TimeSlotBlock {
     byte_count: u16,
     time_increment: u16,
     actions: Vec<u8>, // .skip(4)
 }
 
 #[derive(Debug)]
-pub enum GameBlock {
+pub(crate) enum GameBlock {
     Leave(LeaveGameBlock),
     TimeSlot(TimeSlotBlock),
     PlayerChatMsg(PlayerChatMsgBlock),

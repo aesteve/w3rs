@@ -7,7 +7,7 @@ use std::io::Read;
 use std::{fmt, io};
 
 #[derive(PartialEq, Eq)]
-pub struct CompressedDataBlock {
+pub(crate) struct CompressedDataBlock {
     pub block_size: u16,
     pub block_decompressed_size: u16,
     pub compressed: Vec<u8>,
@@ -32,7 +32,7 @@ impl CompressedDataBlock {
     }
 }
 
-pub fn compressed_data_blocks(input: &[u8]) -> IResult<&[u8], Vec<CompressedDataBlock>> {
+pub(crate) fn compressed_data_blocks(input: &[u8]) -> IResult<&[u8], Vec<CompressedDataBlock>> {
     many0(compressed_data_block)(input)
 }
 
@@ -53,7 +53,7 @@ fn compressed_data_block(input: &[u8]) -> IResult<&[u8], CompressedDataBlock> {
     )
 }
 
-pub fn deflate_game(blocks: &[CompressedDataBlock]) -> Result<Vec<u8>, io::Error> {
+pub(crate) fn deflate_game(blocks: &[CompressedDataBlock]) -> Result<Vec<u8>, io::Error> {
     let mut decoded = Vec::new();
     for block in blocks {
         decoded.extend(block.inflate()?);

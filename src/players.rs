@@ -30,24 +30,24 @@ impl Race {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct PlayerMetaData {
+pub(crate) struct PlayerMetaData {
     pub player_id: u8,
     pub player_name: String,
 }
 
 #[derive(Debug, PartialEq)]
-pub struct PlayerSlotMetaData {
-    pub player_id: u8,
+pub(crate) struct PlayerSlotMetaData {
+    pub(crate) player_id: u8,
     slot_status: u8,
     computer_flag: u8,
-    pub team_id: u8,
-    pub color: u8,
-    pub race: Race,
+    pub(crate) team_id: u8,
+    pub(crate) color: u8,
+    pub(crate) race: Race,
     ai_strength: u8,
     handicap_flag: u8,
 }
 
-pub fn parse_player_metadata(input: &[u8]) -> IResult<&[u8], PlayerMetaData> {
+pub(crate) fn parse_player_metadata(input: &[u8]) -> IResult<&[u8], PlayerMetaData> {
     do_parse!(
         input,
         player_id: le_u8
@@ -77,7 +77,9 @@ fn parse_player_metadata_in_list(input: &[u8]) -> IResult<&[u8], PlayerMetaData>
     )
 }
 
-pub fn parse_players(nb_players: u32) -> impl Fn(&[u8]) -> IResult<&[u8], Vec<PlayerMetaData>> {
+pub(crate) fn parse_players(
+    nb_players: u32,
+) -> impl Fn(&[u8]) -> IResult<&[u8], Vec<PlayerMetaData>> {
     move |input| {
         std::iter::repeat(parse_player_metadata_in_list)
             .take(nb_players as usize)
@@ -90,7 +92,7 @@ pub fn parse_players(nb_players: u32) -> impl Fn(&[u8]) -> IResult<&[u8], Vec<Pl
     }
 }
 
-pub fn parse_players_slots(
+pub(crate) fn parse_players_slots(
     nb_players: u8,
 ) -> impl Fn(&[u8]) -> IResult<&[u8], Vec<PlayerSlotMetaData>> {
     move |input| {
