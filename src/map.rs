@@ -2,8 +2,8 @@ use crate::utils::zero_terminated;
 use nom::IResult;
 
 #[derive(Debug)]
-pub(crate) struct MapInfo {
-    pub(crate) name: String, // zeroTerminated
+pub struct MapInfo {
+    pub name: String, // zeroTerminated
 }
 
 pub(crate) fn parse_map_info(input: &[u8]) -> IResult<&[u8], MapInfo> {

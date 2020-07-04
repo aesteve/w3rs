@@ -12,10 +12,10 @@ pub(crate) struct PlayerChatMsgMetadata {
 }
 
 #[derive(Debug)]
-pub(crate) struct PlayerChatMsgBlock {
-    player_id: u8,
+pub struct PlayerChatMsgBlock {
+    pub player_id: u8,
+    pub text: String,
     kind: ChatMsgBlock,
-    text: String,
 }
 
 #[derive(Debug)]

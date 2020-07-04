@@ -1,13 +1,13 @@
 use crate::blocks::chat::{player_chat_msg, PlayerChatMsgBlock};
-use hex_string::u8_to_hex_string;
+use crate::blocks::command::{parse_command, CommandData};
 use nom::{
     number::complete::{le_u16, le_u8},
     IResult,
 };
-use std::iter::FromIterator;
+use std::convert::TryInto;
 
 #[derive(Debug)]
-pub(crate) enum GameBlock {
+pub enum GameBlock {
     Leave(LeaveGameBlock),
     TimeSlot(TimeSlotBlock),
     PlayerChatMsg(PlayerChatMsgBlock),
@@ -15,18 +15,36 @@ pub(crate) enum GameBlock {
     Unknown,
 }
 
-#[derive(Debug)]
-pub(crate) struct LeaveGameBlock {
-    reason: String,
-    player_id: u8,
-    result: String, // .skip(4)
+impl GameBlock {
+    pub fn should_display(&self) -> bool {
+        match self {
+            GameBlock::Unknown | GameBlock::Ignored => false,
+            GameBlock::TimeSlot(ts) => ts.command.is_some(),
+            _ => true,
+        }
+    }
 }
 
 #[derive(Debug)]
-pub(crate) struct TimeSlotBlock {
+pub struct LeaveGameBlock {
+    pub player_id: u8,
+    pub reason: [u8; 4],
+    pub result: [u8; 4],
+}
+
+#[derive(Debug)]
+pub struct TimeSlotBlock {
     byte_count: u16,
-    time_increment: u16,
-    actions: Vec<u8>, // .skip(4)
+    pub time_increment: u16,
+    pub command: Option<CommandData>,
+}
+
+pub(crate) fn parse_time_blocks(input: &[u8]) -> IResult<&[u8], Option<CommandData>> {
+    if input.is_empty() {
+        Ok((&[], None))
+    } else {
+        parse_command(input).map(|(b, cd)| (b, Some(cd)))
+    }
 }
 
 named!(
@@ -76,11 +94,11 @@ fn time_slot_block(input: &[u8]) -> IResult<&[u8], GameBlock> {
         input,
         byte_count: le_u16
             >> time_increment: le_u16
-            >> actions: dbg!(take!(byte_count - 2))
+            >> command: map_res!(take!(byte_count - 2), parse_time_blocks)
             >> (GameBlock::TimeSlot(TimeSlotBlock {
                 byte_count,
                 time_increment,
-                actions: actions.to_vec()
+                command: command.1
             }))
     )?;
     Ok((input, res))
@@ -89,14 +107,14 @@ fn time_slot_block(input: &[u8]) -> IResult<&[u8], GameBlock> {
 fn parse_leave_block(input: &[u8]) -> IResult<&[u8], GameBlock> {
     let (input, res) = do_parse!(
         input,
-        reason: dbg!(take!(4))
-            >> player_id: dbg!(le_u8)
-            >> result: dbg!(take!(4))
-            >> ignored: dbg!(take!(4))
+        reason: take!(4)
+            >> player_id: le_u8
+            >> result: take!(4)
+            >> ignored: take!(4)
             >> (GameBlock::Leave(LeaveGameBlock {
                 player_id,
-                reason: String::from_iter(reason.iter().flat_map(|c| u8_to_hex_string(c).to_vec())),
-                result: String::from_iter(result.iter().flat_map(|c| u8_to_hex_string(c).to_vec())),
+                reason: reason[0..4].try_into().unwrap(),
+                result: result[0..4].try_into().unwrap(),
             }))
     )?;
     Ok((input, res))

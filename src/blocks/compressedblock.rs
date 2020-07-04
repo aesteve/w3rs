@@ -40,7 +40,7 @@ fn compressed_data_block(input: &[u8]) -> IResult<&[u8], CompressedDataBlock> {
             >> block_decompressed_size: le_u16
             >> str_ignored: take!(4)
             >> byt_ignored: take!(2)
-            >> compressed: dbg!(take!(block_size))
+            >> compressed: take!(block_size)
             >> (CompressedDataBlock {
                 block_size,
                 block_decompressed_size,

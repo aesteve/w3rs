@@ -13,14 +13,14 @@ use crate::metadata::{
     replay::parse_header,
 };
 use itertools::Itertools;
-use nom::lib::std::fmt::Formatter;
+use nom::lib::std::fmt::{Debug, Formatter};
 use std::fmt::Display;
-use std::fs::DirEntry;
 use std::{fmt, fs};
 
+use crate::blocks::gameblock::GameBlock;
 use crate::race::Race;
 use colored::Colorize;
-
+use std::path::Path;
 mod blocks;
 pub mod map;
 mod metadata;
@@ -29,22 +29,23 @@ mod utils;
 
 #[derive(Debug)]
 pub struct Player {
-    team_id: u8,
-    player_id: u8,
-    player_name: String,
-    race: Race,
-    color: u8,
-    host: bool,
+    pub team_id: u8,
+    pub player_id: u8,
+    pub player_name: String,
+    pub race: Race,
+    pub color: u8,
+    pub host: bool,
 }
 
 #[derive(Debug)]
 pub struct Game {
-    name: String,
-    game_type: Vec<String>,
-    game_start_record: GameStartRecord,
-    players: Vec<Player>,
-    pos: GamePosData,
-    map: MapInfo,
+    pub name: String,
+    pub game_type: Vec<String>,
+    pub game_start_record: GameStartRecord,
+    pub players: Vec<Player>,
+    pub pos: GamePosData,
+    pub map: MapInfo,
+    pub blocks: Vec<GameBlock>,
 }
 
 #[derive(Debug)]
@@ -66,9 +67,9 @@ pub enum GameType {
 }
 
 impl Game {
-    pub fn parse(file: DirEntry) -> Game {
+    pub fn parse<P: AsRef<Path> + Debug>(file: P) -> Game {
         println!("Read replay {:?}", file);
-        let file = fs::read(file.path()).expect("Can read replay as bytes");
+        let file = fs::read(file).expect("Can read replay as bytes");
         let (rest, _) = parse_header(&file[..]).expect("Could not parse replay header");
         let (_, blocks) = compressed_data_blocks(rest).expect("Could not parse data blocks");
         let decoded = deflate_game(&blocks)
@@ -85,7 +86,7 @@ impl Game {
         let (_, map) = parse_map_info(&crate::utils::decode(&metadata.encoded_map_info)[..])
             .expect("Could not decode map data");
         let host = metadata.host.clone();
-        let (_, _) = parse_game_blocks(rest).expect("Could not parse data blocks");
+        let (_, blocks) = parse_game_blocks(rest).expect("Could not parse data blocks");
         let players: Vec<Player> = players_slots
             .iter()
             .flat_map(|slot| {
@@ -123,13 +124,14 @@ impl Game {
             game_start_record,
             pos: game_pos_data,
             map,
+            blocks,
         }
     }
 
-    pub fn players_by_team(&self) -> Vec<(u8, Vec<&Player>)> {
+    pub fn players_by_team(&self) -> Vec<(u16, Vec<&Player>)> {
         self.players
             .iter()
-            .group_by(|p| p.team_id)
+            .group_by(|p| p.team_id as u16)
             .into_iter()
             .filter_map(|(team, players)| match team {
                 25 => None,
@@ -195,7 +197,7 @@ impl Display for Race {
     }
 }
 
-impl fmt::Display for Player {
+impl Display for Player {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let description = format!("{} ({})", self.player_name, self.race);
         match self.color {
@@ -212,19 +214,60 @@ impl fmt::Display for Player {
     }
 }
 
+impl Display for GameBlock {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            GameBlock::PlayerChatMsg(msg) => writeln!(f, "{}: {}", msg.player_id, msg.text)?,
+            GameBlock::Leave(left) => writeln!(
+                f,
+                "{} left {:?}|{:?}",
+                left.player_id, left.reason, left.result
+            )?,
+            GameBlock::TimeSlot(ts_block) => {
+                if let Some(cmd) = &ts_block.command {
+                    writeln!(f, "{}:", cmd.player)?;
+                    for action in &cmd.actions {
+                        writeln!(f, "\t{:?}", action)?;
+                    }
+                }
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use crate::blocks::gameblock::GameBlock;
     use crate::Game;
+    use humantime::format_duration;
     use std::fs;
     use std::path::Path;
-    use std::time::SystemTime;
+    use std::time::{Duration, SystemTime};
 
     fn parse_replays<P: AsRef<Path>>(path: P) -> Vec<Game> {
         fs::read_dir(path)
             .expect("Replays dir should exist")
-            .map(|f| Game::parse(f.unwrap()))
+            .map(|f| Game::parse(f.unwrap().path()))
             .collect()
     }
+
+    #[test]
+    fn parse_ts_blocks() {
+        let game = Game::parse(Path::new("./replays-ignore/Replay_2020_06_29_0026.w3g"));
+        println!("Blocks:");
+        let mut time = Duration::from_millis(0);
+        for block in &game.blocks {
+            if let GameBlock::TimeSlot(ts_block) = block {
+                time += Duration::from_millis(ts_block.time_increment as u64);
+            }
+            if block.should_display() {
+                println!("[{}] {}", format_duration(time), block);
+            }
+        }
+    }
+
     #[test]
     fn parse_all() {
         let start = SystemTime::now();
