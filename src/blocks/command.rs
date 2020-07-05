@@ -51,6 +51,12 @@ pub enum Action {
 }
 
 #[derive(Debug, PartialEq)]
+pub(crate) enum ItemOrUnit {
+    Str(String),
+    Binary([u8; 4]),
+}
+
+#[derive(Debug, PartialEq)]
 pub struct Position {
     x: f32,
     y: f32,
@@ -59,20 +65,20 @@ pub struct Position {
 #[derive(Debug, PartialEq)]
 pub struct UnitBuildingAbilityActionNoParams {
     ability: u16,
-    item: [u8; 4],
+    item: ItemOrUnit,
 }
 
 #[derive(Debug, PartialEq)]
 pub struct UnitBuildingAbilityActionTargetPosition {
     ability: u16,
-    item: [u8; 4],
+    item: ItemOrUnit,
     target_position: Position,
 }
 
 #[derive(Debug, PartialEq)]
 pub struct UnitBuildingAbilityActionTargetPositionTargetObjectId {
     ability: u16,
-    item: [u8; 4],
+    item: ItemOrUnit,
     target_position: Position,
     object_1: u32,
     object_2: u32,
@@ -81,7 +87,7 @@ pub struct UnitBuildingAbilityActionTargetPositionTargetObjectId {
 #[derive(Debug, PartialEq)]
 pub struct GiveItemToUnitAction {
     ability: u16,
-    item: [u8; 4],
+    item: ItemOrUnit,
     target_position: Position,
     object_1: u32,
     object_2: u32,
@@ -92,15 +98,15 @@ pub struct GiveItemToUnitAction {
 #[derive(Debug, PartialEq)]
 pub struct UnitBuildingAbilityActionTwoTargetPositions {
     ability: u16,
-    item_1: [u8; 4],
+    item_1: ItemOrUnit,
     target_position_1: Position,
-    item_2: [u8; 4],
+    item_2: ItemOrUnit,
     target_position_2: Position,
 }
 
 #[derive(Debug, PartialEq)]
 pub struct ChangeSelectionAction {
-    select_mode: u8,
+    select_mode: SelectionMode,
     selected_units: Vec<UnitSelection>,
 }
 
@@ -112,33 +118,33 @@ pub struct AssignGroupHotkeyAction {
 
 #[derive(Debug, PartialEq)]
 pub struct UnitSelection {
-    item_1: [u8; 4],
-    item_2: [u8; 4],
+    object_1: u32,
+    object_2: u32,
 }
 
 #[derive(Debug, PartialEq)]
 pub struct SelectSubgroupAction {
-    item: [u8; 4],
+    item: ItemOrUnit,
     object_1: u32,
     object_2: u32,
 }
 
 #[derive(Debug, PartialEq)]
 pub struct SelectGroundItemAction {
-    object_1: [u8; 4],
-    object_2: [u8; 4],
+    object_1: ItemOrUnit,
+    object_2: ItemOrUnit,
 }
 
 #[derive(Debug, PartialEq)]
 pub struct CancelHeroRevivalAction {
-    unit_1: [u8; 4],
-    unit_2: [u8; 4],
+    unit_1: ItemOrUnit,
+    unit_2: ItemOrUnit,
 }
 
 #[derive(Debug, PartialEq)]
 pub struct RemoveUnitFromBuildingQueueAction {
     slot: u8,
-    unit: [u8; 4],
+    unit: ItemOrUnit,
 }
 
 #[derive(Debug, PartialEq)]
@@ -160,6 +166,23 @@ pub struct W3MMDAction {
     mission_key: String,
     key: String,
     value: u32,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum SelectionMode {
+    Add,
+    Remove,
+}
+
+fn parse_selection_mode(input: &[u8]) -> IResult<&[u8], SelectionMode> {
+    do_parse!(
+        input,
+        selection: le_u8
+            >> (match selection {
+                1 => SelectionMode::Add,
+                _ => SelectionMode::Remove,
+            })
+    )
 }
 
 named!(
@@ -184,6 +207,25 @@ named!(
 pub(crate) fn parse_actions_vec(input: &[u8]) -> IResult<&[u8], Vec<Action>> {
     let (input, (res, _)) = parse_actions(input)?;
     Ok((input, res))
+}
+
+fn item_or_unit(input: &[u8]) -> IResult<&[u8], ItemOrUnit> {
+    do_parse!(
+        input,
+        bytes: take!(4)
+            >> (match bytes {
+                [_, _, 13, 0] => ItemOrUnit::Binary(bytes[0..4].try_into().unwrap()),
+                _ => {
+                    ItemOrUnit::Str(
+                        String::from_utf8_lossy(bytes)
+                            .to_string()
+                            .chars()
+                            .rev()
+                            .collect(),
+                    )
+                }
+            })
+    )
 }
 
 named!(
@@ -260,12 +302,12 @@ fn unit_building_ability_no_params(input: &[u8]) -> IResult<&[u8], Action> {
     do_parse!(
         input,
         ability: le_u16
-        >> item: take!(4)
+        >> item: item_or_unit
         >> ignored1: le_u32 // TODO
         >> ignored2: le_u32 // TODO
         >> (Action::UnitBuildingAbilityNoParams(UnitBuildingAbilityActionNoParams {
             ability,
-            item: item[0..4].try_into().unwrap(),
+            item,
         }))
     )
 }
@@ -274,14 +316,14 @@ fn unit_building_ability_target_position(input: &[u8]) -> IResult<&[u8], Action>
     do_parse!(
         input,
         ability: le_u16
-        >> item: take!(4)
+        >> item: item_or_unit
         >> ignored1: le_u32 // TODO
         >> ignored2: le_u32 // TODO
         >> target_x: le_f32
         >> target_y: le_f32
         >> (Action::UnitBuildingAbilityTargetPosition(UnitBuildingAbilityActionTargetPosition {
             ability,
-            item: item[0..4].try_into().unwrap(),
+            item,
             target_position: Position { x: target_x, y: target_y }
         }))
     )
@@ -291,7 +333,7 @@ fn unit_building_ability_target_position_target_object_id(input: &[u8]) -> IResu
     do_parse!(
         input,
         ability: le_u16
-        >> item: take!(4)
+        >> item: item_or_unit
         >> ignored1: le_u32 // TODO
         >> ignored2: le_u32 // TODO
         >> target_x: le_f32
@@ -300,7 +342,7 @@ fn unit_building_ability_target_position_target_object_id(input: &[u8]) -> IResu
         >> object_2: le_u32
         >> (Action::UnitBuildingAbilityTargetPositionTargetObjectId(UnitBuildingAbilityActionTargetPositionTargetObjectId {
             ability,
-            item: item[..4].try_into().unwrap(),
+            item,
             target_position: Position { x: target_x, y: target_y },
             object_1,
             object_2
@@ -312,7 +354,7 @@ fn give_item(input: &[u8]) -> IResult<&[u8], Action> {
     do_parse!(
         input,
         ability: le_u16
-        >> item: take!(4)
+        >> item: item_or_unit
         >> ignored1: le_u32 // TODO
         >> ignored2: le_u32 // TODO
         >> target_x: le_f32
@@ -323,7 +365,7 @@ fn give_item(input: &[u8]) -> IResult<&[u8], Action> {
         >> item_object_2: le_u32 // README: slot? => check
         >> (Action::GiveItem(GiveItemToUnitAction {
             ability,
-            item: item[0..4].try_into().unwrap(),
+            item,
             target_position: Position { x: target_x, y: target_y },
             object_1,
             object_2,
@@ -337,20 +379,20 @@ fn unit_building_ability_two_target_positions(input: &[u8]) -> IResult<&[u8], Ac
     do_parse!(
         input,
         ability: le_u16
-        >> item_1: take!(4)
+        >> item_1: item_or_unit
         >> ignored1: le_u32 // TODO
         >> ignored2: le_u32 // TODO
         >> target_1_x: le_f32
         >> target_1_y: le_f32
-        >> item_2: take!(4)
+        >> item_2: item_or_unit
         >> ignored3: take!(9) // TODO?
         >> target_2_x: le_f32
         >> target_2_y: le_f32
         >> (Action::UnitBuildingAbilityTwoTargetPositions(UnitBuildingAbilityActionTwoTargetPositions {
             ability,
-            item_1: item_1[0..4].try_into().unwrap(),
+            item_1,
             target_position_1: Position { x: target_1_x, y: target_1_y },
-            item_2: item_2[0..4].try_into().unwrap(),
+            item_2,
             target_position_2: Position { x: target_2_x, y: target_2_y },
         }))
     )
@@ -359,11 +401,11 @@ fn unit_building_ability_two_target_positions(input: &[u8]) -> IResult<&[u8], Ac
 fn change_selection(input: &[u8]) -> IResult<&[u8], Action> {
     do_parse!(
         input,
-        select_mode: le_u8
-            >> selected_units: length_count!(le_u8, unit_selection)
+        select_mode: parse_selection_mode
+            >> selected_units: length_count!(le_u16, unit_selection)
             >> (Action::ChangeSelection(ChangeSelectionAction {
                 select_mode,
-                selected_units
+                selected_units,
             }))
     )
 }
@@ -371,12 +413,7 @@ fn change_selection(input: &[u8]) -> IResult<&[u8], Action> {
 fn unit_selection(input: &[u8]) -> IResult<&[u8], UnitSelection> {
     do_parse!(
         input,
-        item_1: take!(4)
-            >> item_2: take!(4)
-            >> (UnitSelection {
-                item_1: item_1[0..4].try_into().unwrap(),
-                item_2: item_2[0..4].try_into().unwrap()
-            })
+        object_1: le_u32 >> object_2: le_u32 >> (UnitSelection { object_1, object_2 })
     )
 }
 
@@ -384,7 +421,7 @@ fn assign_group_hotkey(input: &[u8]) -> IResult<&[u8], Action> {
     do_parse!(
         input,
         hotkey: le_u8
-            >> selected_units: length_count!(le_u8, unit_selection)
+            >> selected_units: length_count!(le_u16, unit_selection)
             >> (Action::AssignGroupHotkey(AssignGroupHotkeyAction {
                 hotkey,
                 selected_units
@@ -404,11 +441,11 @@ fn select_group_hotkey(input: &[u8]) -> IResult<&[u8], Action> {
 fn select_subgroup(input: &[u8]) -> IResult<&[u8], Action> {
     do_parse!(
         input,
-        item: take!(4)
+        item: item_or_unit
             >> object_1: le_u32
             >> object_2: le_u32
             >> (Action::SelectSubgroup(SelectSubgroupAction {
-                item: item[0..4].try_into().unwrap(),
+                item,
                 object_1,
                 object_2,
             }))
@@ -419,24 +456,18 @@ fn select_ground_item(input: &[u8]) -> IResult<&[u8], Action> {
     do_parse!(
         input,
         ignored: take!(1)
-            >> object_1: take!(4)
-            >> object_2: take!(4)
-            >> (Action::SelectGroundItem(SelectGroundItemAction {
-                object_1: object_1[0..4].try_into().unwrap(),
-                object_2: object_2[0..4].try_into().unwrap(),
-            }))
+            >> object_1: item_or_unit
+            >> object_2: item_or_unit
+            >> (Action::SelectGroundItem(SelectGroundItemAction { object_1, object_2 }))
     )
 }
 
 fn cancel_hero_revival(input: &[u8]) -> IResult<&[u8], Action> {
     do_parse!(
         input,
-        unit_1: take!(4)
-            >> unit_2: take!(4)
-            >> (Action::CancelHeroRevival(CancelHeroRevivalAction {
-                unit_1: unit_1[0..4].try_into().unwrap(),
-                unit_2: unit_2[0..4].try_into().unwrap(),
-            }))
+        unit_1: item_or_unit
+            >> unit_2: item_or_unit
+            >> (Action::CancelHeroRevival(CancelHeroRevivalAction { unit_1, unit_2 }))
     )
 }
 
@@ -444,10 +475,10 @@ fn remove_unit_from_building_queue(input: &[u8]) -> IResult<&[u8], Action> {
     do_parse!(
         input,
         slot: le_u8
-            >> unit: take!(4)
+            >> unit: item_or_unit
             >> (Action::RemoveUnitFromBuildingQueue(RemoveUnitFromBuildingQueueAction {
                 slot,
-                unit: unit[0..4].try_into().unwrap(),
+                unit,
             }))
     )
 }

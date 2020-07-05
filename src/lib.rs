@@ -283,7 +283,7 @@ impl Display for GameBlock {
             )?,
             GameBlock::TimeSlot(ts_block) => {
                 if let Some(cmd) = &ts_block.command {
-                    writeln!(f, "{}:", cmd.player)?;
+                    writeln!(f, "Player {}:", cmd.player)?;
                     for action in &cmd.actions {
                         writeln!(f, "\t{:?}", action)?;
                     }
