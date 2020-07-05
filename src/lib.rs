@@ -17,10 +17,11 @@ use nom::lib::std::fmt::{Debug, Formatter};
 use std::fmt::Display;
 use std::{fmt, fs};
 
-use crate::blocks::gameblock::GameBlock;
+use crate::blocks::gameblock::{GameBlock, LeaveGameBlock};
 use crate::race::Race;
 use colored::Colorize;
 use std::path::Path;
+
 mod blocks;
 pub mod map;
 mod metadata;
@@ -46,6 +47,57 @@ pub struct Game {
     pub pos: GamePosData,
     pub map: MapInfo,
     pub blocks: Vec<GameBlock>,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum GameOutcome {
+    Draw,
+    Winner(u16), // team id
+    Unknown,
+}
+
+impl Game {
+    pub fn outcome(&self) -> GameOutcome {
+        let leave_blocks: Vec<&LeaveGameBlock> = self
+            .blocks
+            .iter()
+            .filter_map(|b| match b {
+                GameBlock::Leave(l) => Some(l),
+                _ => None,
+            })
+            .collect();
+        if leave_blocks.iter().any(|l| l.is_draw()) {
+            return GameOutcome::Draw;
+        }
+        let players_by_team = self.players_by_team();
+        let mut teams_who_lost: Vec<u16> = Vec::new();
+        let all_teams: Vec<u16> = players_by_team.iter().map(|t| t.0).collect();
+        for (team_id, players) in players_by_team {
+            let team_leave_blocks: Vec<&&LeaveGameBlock> = leave_blocks
+                .iter()
+                .filter_map(|l| {
+                    players
+                        .iter()
+                        .find(|p| p.player_id == l.player_id)
+                        .map(|_| l)
+                })
+                .collect();
+            if team_leave_blocks.iter().any(|block| block.player_won()) {
+                return GameOutcome::Winner(team_id);
+            } else if team_leave_blocks.iter().all(|block| block.player_lost()) {
+                teams_who_lost.push(team_id);
+            }
+        }
+        if teams_who_lost.len() == all_teams.len() - 1 {
+            return GameOutcome::Winner(
+                *(all_teams
+                    .iter()
+                    .find(|t| !teams_who_lost.contains(&&t))
+                    .unwrap()),
+            );
+        }
+        GameOutcome::Unknown
+    }
 }
 
 #[derive(Debug)]
@@ -169,17 +221,23 @@ impl Game {
 
 impl Display for Game {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let outcome = self.outcome();
         writeln!(f, "Warcraft 3 Reforged game. {:?}", self.game_type())?;
         writeln!(f, "\tMap: {}", self.map.name)?;
         for (team, players) in self.players_by_team() {
+            let team_won = outcome == GameOutcome::Winner(team);
             write!(f, "\tTeam {:?}:", team + 1)?;
             write!(f, " [ ")?;
             for player in players {
                 write!(f, "{} ", player)?;
             }
-            writeln!(f, "]")?;
+            write!(f, "]")?;
+            if team_won {
+                write!(f, " ✅")?;
+            }
+            writeln!(f)?;
         }
-        write!(f, "")
+        Ok(())
     }
 }
 
@@ -242,6 +300,7 @@ mod tests {
     use crate::blocks::gameblock::GameBlock;
     use crate::Game;
     use humantime::format_duration;
+    use itertools::Itertools;
     use std::fs;
     use std::path::Path;
     use std::time::{Duration, SystemTime};
@@ -249,7 +308,9 @@ mod tests {
     fn parse_replays<P: AsRef<Path>>(path: P) -> Vec<Game> {
         fs::read_dir(path)
             .expect("Replays dir should exist")
-            .map(|f| Game::parse(f.unwrap().path()))
+            .map(|f| f.unwrap().path())
+            .sorted()
+            .map(Game::parse)
             .collect()
     }
 

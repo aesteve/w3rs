@@ -32,6 +32,20 @@ pub struct LeaveGameBlock {
     pub result: [u8; 4],
 }
 
+impl LeaveGameBlock {
+    pub fn is_draw(&self) -> bool {
+        self.result[0] == 10 // no matter if reason[0] is 0x01 or 0x0C
+    }
+    /// true if we're SURE the player won, false otherwise
+    pub fn player_won(&self) -> bool {
+        self.result[0] == 9
+    }
+    /// true if we're SURE the player lost, false otherwise
+    pub fn player_lost(&self) -> bool {
+        self.result[0] == 8 || self.result[0] == 13
+    }
+}
+
 #[derive(Debug)]
 pub struct TimeSlotBlock {
     byte_count: u16,
