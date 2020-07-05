@@ -57,15 +57,18 @@ pub enum GameOutcome {
 }
 
 impl Game {
-    pub fn outcome(&self) -> GameOutcome {
-        let leave_blocks: Vec<&LeaveGameBlock> = self
-            .blocks
+    pub(crate) fn leave_blocks(&self) -> Vec<&LeaveGameBlock> {
+        self.blocks
             .iter()
             .filter_map(|b| match b {
                 GameBlock::Leave(l) => Some(l),
                 _ => None,
             })
-            .collect();
+            .collect()
+    }
+
+    pub fn outcome(&self) -> GameOutcome {
+        let leave_blocks = self.leave_blocks();
         if leave_blocks.iter().any(|l| l.is_draw()) {
             return GameOutcome::Draw;
         }
@@ -73,18 +76,15 @@ impl Game {
         let mut teams_who_lost: Vec<u16> = Vec::new();
         let all_teams: Vec<u16> = players_by_team.iter().map(|t| t.0).collect();
         for (team_id, players) in players_by_team {
-            let team_leave_blocks: Vec<&&LeaveGameBlock> = leave_blocks
-                .iter()
-                .filter_map(|l| {
-                    players
-                        .iter()
-                        .find(|p| p.player_id == l.player_id)
-                        .map(|_| l)
-                })
-                .collect();
-            if team_leave_blocks.iter().any(|block| block.player_won()) {
+            let mut team_leave_blocks = leave_blocks.iter().filter_map(|l| {
+                players
+                    .iter()
+                    .find(|p| p.player_id == l.player_id)
+                    .map(|_| l)
+            });
+            if team_leave_blocks.any(|block| block.player_won()) {
                 return GameOutcome::Winner(team_id);
-            } else if team_leave_blocks.iter().all(|block| block.player_lost()) {
+            } else if team_leave_blocks.all(|block| block.player_lost()) {
                 teams_who_lost.push(team_id);
             }
         }
