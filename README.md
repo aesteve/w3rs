@@ -80,7 +80,7 @@ The others do, and for now there's only a derived `Debug` of actions, here's a d
 	PreSubselection
 	SelectSubgroup(SelectSubgroupAction { item: Str("edry"), object_1: 25843, object_2: 173511 })
 
-[14m 28s 179ms] Player 1: gg
+[14m 28s 179ms] Player 2: gg
 
 [14m 28s 220ms] Player 1:
 	UnitBuildingAbilityTargetPositionTargetObjectId(UnitBuildingAbilityActionTargetPositionTargetObjectId { ability: 0, item: Binary([3, 0, 13, 0]), target_position: Position { x: -3734.205, y: -3364.9844 }, object_1: 25770, object_2: 233844 })
@@ -109,7 +109,7 @@ Which would translate in an human-readable way as:
 [14m 28s 88ms] Player 1 has selected the second control group. Within this group the first unit is the Demon Hunter hero
 [14m 28s 159ms] Player 2 said 'gg'
 [14m 28s 179ms] Player 1 has selected the second control group. Within this group the first unit is a Dryad
-[14m 28s 179ms] Player 1 said 'gg'
+[14m 28s 179ms] Player 2 said 'gg' (that seems to be a bug in Reforged games, some chat messages are recorded twice)
  [...]
 [14m 28s 391ms] Player 2 left, losing the game
 [14m 28s 391ms] Player 1 left, won the game
