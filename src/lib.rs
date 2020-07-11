@@ -329,7 +329,7 @@ impl Display for GameBlock {
 #[cfg(test)]
 mod tests {
     use crate::blocks::gameblock::GameBlock;
-    use crate::Game;
+    use crate::{Game, GameOutcome};
     use humantime::format_duration;
     use itertools::Itertools;
     use std::fs;
@@ -382,6 +382,6 @@ mod tests {
     fn test_outcome_one_on_one() {
         let one_on_one_replay = Path::new("./replays-ignore/Replay_2020_06_29_0026.w3g");
         let one_on_one_game = Game::parse(one_on_one_replay);
-        println!("{:?}", one_on_one_game.outcome());
+        assert_eq!(GameOutcome::Winner(0), one_on_one_game.outcome())
     }
 }
