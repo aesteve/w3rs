@@ -117,7 +117,7 @@ Which would translate in an human-readable way as:
 
 ## Testing & stuff
 
-I'm testing on a set of Reforged replays fetched from w3gjs repository, but way more (> 110 files) on a set of non-public replay files (the `replays-ignore` folder which is NOT committed).
+I'm testing on a tiny subset of Reforged replays fetched from w3gjs repository, but way more (> 110 files) on a set of non-public replay files (the `replays-ignore` folder which is NOT committed).
 
 I really don't want this repository to be used to leak private replays. 
 
