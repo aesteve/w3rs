@@ -4,8 +4,8 @@ use nom::{number::complete::le_u8, IResult};
 
 #[derive(Debug, PartialEq, Clone)]
 pub(crate) struct PlayerMetaData {
-    pub player_id: u8,
-    pub player_name: String,
+    pub id: u8,
+    pub name: String,
 }
 
 #[derive(Debug, PartialEq)]
@@ -23,13 +23,13 @@ pub(crate) struct PlayerSlotMetaData {
 pub(crate) fn parse_player_metadata(input: &[u8]) -> IResult<&[u8], PlayerMetaData> {
     do_parse!(
         input,
-        player_id: le_u8
-            >> player_name: zero_terminated
+        id: le_u8
+            >> name: zero_terminated
             >> add_data_flag: le_u8
             >> ignored: take!(add_data_flag)
             >> (PlayerMetaData {
-                player_id,
-                player_name: String::from_utf8_lossy(player_name).to_string(),
+                id,
+                name: String::from_utf8_lossy(name).to_string(),
             })
     )
 }
@@ -38,14 +38,14 @@ fn parse_player_metadata_in_list(input: &[u8]) -> IResult<&[u8], PlayerMetaData>
     do_parse!(
         input,
         ignored: take!(1)
-            >> player_id: le_u8
-            >> player_name: zero_terminated
+            >> id: le_u8
+            >> name: zero_terminated
             >> add_data_flag: le_u8
             >> ignored: take!(add_data_flag)
             >> ignored2: take!(4)
             >> (PlayerMetaData {
-                player_id,
-                player_name: String::from_utf8_lossy(player_name).to_string(),
+                id,
+                name: String::from_utf8_lossy(name).to_string(),
             })
     )
 }

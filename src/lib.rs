@@ -20,6 +20,7 @@ use std::{fmt, fs};
 use crate::blocks::gameblock::{GameBlock, LeaveGameBlock};
 use crate::race::Race;
 use colored::Colorize;
+use std::hash::{Hash, Hasher};
 use std::path::Path;
 
 mod blocks;
@@ -28,14 +29,35 @@ mod metadata;
 pub mod race;
 mod utils;
 
-#[derive(Debug)]
+#[derive(Debug, Eq)]
 pub struct Player {
     pub team_id: u8,
-    pub player_id: u8,
-    pub player_name: String,
+    pub id: u8,
+    pub name: String,
     pub race: Race,
     pub color: u8,
     pub host: bool,
+}
+
+impl Player {
+    pub fn is_observer(&self) -> bool {
+        self.team_id == 24
+            || self.team_id == 25
+            || self.team_id == 12
+            || self.race == Race::Unknown && self.color > 6
+    }
+}
+
+impl Hash for Player {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.id.hash(state)
+    }
+}
+
+impl PartialEq for Player {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
 }
 
 #[derive(Debug)]
@@ -76,15 +98,17 @@ impl Game {
         let mut teams_who_lost: Vec<u16> = Vec::new();
         let all_teams: Vec<u16> = players_by_team.iter().map(|t| t.0).collect();
         for (team_id, players) in players_by_team {
-            let mut team_leave_blocks = leave_blocks.iter().filter_map(|l| {
-                players
-                    .iter()
-                    .find(|p| p.player_id == l.player_id)
-                    .map(|_| l)
-            });
-            if team_leave_blocks.any(|block| block.player_won()) {
+            let team_leave_blocks: Vec<&&LeaveGameBlock> = leave_blocks
+                .iter()
+                .filter_map(|l| {
+                    players
+                        .iter()
+                        .find_map(|p| if p.id == l.player_id { Some(l) } else { None })
+                })
+                .collect();
+            if team_leave_blocks.iter().any(|block| block.player_won()) {
                 return GameOutcome::Winner(team_id);
-            } else if team_leave_blocks.all(|block| block.player_lost()) {
+            } else if team_leave_blocks.iter().all(|block| block.player_lost()) {
                 teams_who_lost.push(team_id);
             }
         }
@@ -142,22 +166,22 @@ impl Game {
         let players: Vec<Player> = players_slots
             .iter()
             .flat_map(|slot| {
-                if host.player_id == slot.player_id {
+                if host.id == slot.player_id {
                     Some(Player {
                         team_id: slot.team_id,
-                        player_id: host.player_id,
-                        player_name: host.player_name.clone(),
+                        id: host.id,
+                        name: host.name.clone(),
                         race: slot.race.clone(),
                         color: slot.color,
                         host: true,
                     })
                 } else {
                     players_metadata.iter().find_map(|m| {
-                        if m.player_id == slot.player_id && m.player_name != "" {
+                        if m.id == slot.player_id && m.name != "" {
                             Some(Player {
                                 team_id: slot.team_id,
-                                player_id: m.player_id,
-                                player_name: m.player_name.clone(),
+                                id: m.id,
+                                name: m.name.clone(),
                                 race: slot.race.clone(),
                                 color: slot.color,
                                 host: false,
@@ -183,14 +207,21 @@ impl Game {
     pub fn players_by_team(&self) -> Vec<(u16, Vec<&Player>)> {
         self.players
             .iter()
+            .unique()
             .group_by(|p| p.team_id as u16)
             .into_iter()
-            .filter_map(|(team, players)| match team {
-                25 => None,
-                24 => None,
-                12 => None,
-                _ => Some((team, players.collect::<Vec<&Player>>())),
+            .filter_map(|(team, p)| {
+                let players = p.collect::<Vec<&Player>>();
+                if players.is_empty()
+                    || (players.len() == 1 && players[0].name == "d")
+                    || players.iter().any(|p| p.is_observer())
+                {
+                    None
+                } else {
+                    Some((team, players))
+                }
             })
+            .filter(|group| group.1.len() > 1 || group.1[0].name != "d")
             .collect()
     }
 
@@ -257,7 +288,7 @@ impl Display for Race {
 
 impl Display for Player {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let description = format!("{} ({})", self.player_name, self.race);
+        let description = format!("{} ({})", self.name, self.race);
         match self.color {
             0 => write!(f, "{}", description.red()),
             1 => write!(f, "{}", description.blue()),
@@ -275,10 +306,10 @@ impl Display for Player {
 impl Display for GameBlock {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            GameBlock::PlayerChatMsg(msg) => writeln!(f, "{}: {}", msg.player_id, msg.text)?,
+            GameBlock::PlayerChatMsg(msg) => writeln!(f, "Player {}: {}", msg.player_id, msg.text)?,
             GameBlock::Leave(left) => writeln!(
                 f,
-                "{} left {:?}|{:?}",
+                "Player {} left {:?}|{:?}",
                 left.player_id, left.reason, left.result
             )?,
             GameBlock::TimeSlot(ts_block) => {
@@ -345,5 +376,12 @@ mod tests {
             elapsed,
             elapsed / (nb as u128)
         );
+    }
+
+    #[test]
+    fn test_outcome_one_on_one() {
+        let one_on_one_replay = Path::new("./replays-ignore/Replay_2020_06_29_0026.w3g");
+        let one_on_one_game = Game::parse(one_on_one_replay);
+        println!("{:?}", one_on_one_game.outcome());
     }
 }
