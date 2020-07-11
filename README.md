@@ -119,10 +119,13 @@ Which would translate in an human-readable way as:
 
 I'm testing on a tiny subset of Reforged replays fetched from w3gjs repository, but way more (> 110 files) on a set of non-public replay files (the `replays-ignore` folder which is NOT committed).
 
-I really don't want this repository to be used to leak private replays. 
+I'm being careful that this repository does not leak "private" replays. 
 
-So there are chances tests are not working for you. I will work on a more proper set of tests at some point in the future. For instance: extracting subset of the private replays for, say, some very specific actions like "Book of retraining" etc.
+So there are chances tests are not working for you. I will work on a more proper set of UNIT tests at some point in the future. For instance: extracting subset of the private replays for, say, some very specific actions like "Book of retraining" etc.
+
 Since it's a week-end experiment, I'm more interested in "fun stuff" at the moment, like understanding how replays work, how actions are encoded, what useful information (apart from APMs) can be extracted.
+
+---
 
 Thank you for reading, do not hesitate to ask questions or open PRs if you feel like it :)
 
