@@ -1,4 +1,4 @@
-use crate::utils::zero_terminated;
+use crate::utils::zero_terminated_string;
 use nom::bytes::complete::take;
 use nom::combinator::map_res;
 use nom::multi::{count, many0};
@@ -288,11 +288,8 @@ fn set_speed_game(input: &[u8]) -> IResult<&[u8], Action> {
 }
 
 fn save_game(input: &[u8]) -> IResult<&[u8], Action> {
-    let (rest, name) = zero_terminated(input)?;
-    Ok((
-        rest,
-        Action::Save(String::from_utf8_lossy(name).to_string()),
-    ))
+    let (rest, name) = zero_terminated_string(input)?;
+    Ok((rest, Action::Save(name)))
 }
 
 fn save_game_finished(input: &[u8]) -> IResult<&[u8], Action> {
@@ -505,11 +502,8 @@ fn transfer_resources(input: &[u8]) -> IResult<&[u8], Action> {
 fn map_trigger_chat(input: &[u8]) -> IResult<&[u8], Action> {
     let (rest, _) = take(4usize)(input)?;
     let (rest, _) = take(4usize)(rest)?;
-    let (rest, msg) = zero_terminated(rest)?;
-    Ok((
-        rest,
-        Action::MapTriggerChat(String::from_utf8_lossy(msg).to_string()),
-    ))
+    let (rest, msg) = zero_terminated_string(rest)?;
+    Ok((rest, Action::MapTriggerChat(msg)))
 }
 
 fn scenario_trigger(input: &[u8]) -> IResult<&[u8], Action> {
@@ -529,16 +523,16 @@ fn continue_game(input: &[u8]) -> IResult<&[u8], Action> {
 }
 
 fn w3mmd(input: &[u8]) -> IResult<&[u8], Action> {
-    let (rest, filename) = zero_terminated(input)?;
-    let (rest, mission_key) = zero_terminated(rest)?;
-    let (rest, key) = zero_terminated(rest)?;
+    let (rest, filename) = zero_terminated_string(input)?;
+    let (rest, mission_key) = zero_terminated_string(rest)?;
+    let (rest, key) = zero_terminated_string(rest)?;
     let (rest, value) = le_u32(rest)?;
     Ok((
         rest,
         Action::W3MMD(W3MMDAction {
-            filename: String::from_utf8_lossy(filename).to_string(),
-            mission_key: String::from_utf8_lossy(mission_key).to_string(),
-            key: String::from_utf8_lossy(key).to_string(),
+            filename,
+            mission_key,
+            key,
             value,
         }),
     ))

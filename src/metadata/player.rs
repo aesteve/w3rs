@@ -1,5 +1,5 @@
 use crate::race::Race;
-use crate::utils::zero_terminated;
+use crate::utils::zero_terminated_string;
 use nom::bytes::complete::take;
 use nom::{number::complete::le_u8, IResult};
 
@@ -23,32 +23,20 @@ pub(crate) struct PlayerSlotMetaData {
 
 pub(crate) fn parse_player_metadata(input: &[u8]) -> IResult<&[u8], PlayerMetaData> {
     let (rest, id) = le_u8(input)?;
-    let (rest, name) = zero_terminated(rest)?;
+    let (rest, name) = zero_terminated_string(rest)?;
     let (rest, add_data_flag) = le_u8(rest)?;
     let (rest, _) = take(add_data_flag as usize)(rest)?;
-    Ok((
-        rest,
-        PlayerMetaData {
-            id,
-            name: String::from_utf8_lossy(name).to_string(),
-        },
-    ))
+    Ok((rest, PlayerMetaData { id, name }))
 }
 
 fn parse_player_metadata_in_list(input: &[u8]) -> IResult<&[u8], PlayerMetaData> {
     let (rest, _) = take(1usize)(input)?;
     let (rest, id) = le_u8(rest)?;
-    let (rest, name) = zero_terminated(rest)?;
+    let (rest, name) = zero_terminated_string(rest)?;
     let (rest, add_data_flag) = le_u8(rest)?;
     let (rest, _) = take(add_data_flag as usize)(rest)?;
     let (rest, _) = take(4usize)(rest)?;
-    Ok((
-        rest,
-        PlayerMetaData {
-            id,
-            name: String::from_utf8_lossy(name).to_string(),
-        },
-    ))
+    Ok((rest, PlayerMetaData { id, name }))
 }
 
 pub(crate) fn parse_players(

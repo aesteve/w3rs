@@ -1,5 +1,5 @@
 use crate::blocks::gameblock::GameBlock;
-use crate::utils::zero_terminated;
+use crate::utils::zero_terminated_string;
 use nom::bytes::complete::take;
 use nom::{
     number::complete::{le_u16, le_u8},
@@ -74,11 +74,11 @@ fn parse_msg_metadata(input: &[u8]) -> IResult<&[u8], PlayerChatMsgMetadata> {
 pub(crate) fn player_chat_msg(input: &[u8]) -> IResult<&[u8], GameBlock> {
     let (rest, meta) = parse_msg_metadata(input)?;
     let (rest, msg) = parse_message(rest)?;
-    let (rest, text) = zero_terminated(rest)?;
+    let (rest, text) = zero_terminated_string(rest)?;
     let block = GameBlock::PlayerChatMsg(PlayerChatMsgBlock {
         player_id: meta.player_id,
         kind: msg,
-        text: String::from_utf8_lossy(text).to_string(),
+        text,
     });
     Ok((rest, block))
 }

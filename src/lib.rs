@@ -1,6 +1,5 @@
-#[macro_use]
-extern crate nom;
 extern crate colored;
+extern crate nom;
 
 use crate::blocks::{
     compressedblock::{compressed_data_blocks, deflate_game},

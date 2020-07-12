@@ -1,5 +1,5 @@
 use crate::metadata::player::{parse_player_metadata, PlayerMetaData};
-use crate::utils::zero_terminated;
+use crate::utils::{zero_terminated, zero_terminated_string};
 use hex_string::u8_to_hex_string;
 use nom::bytes::complete::{take, take_while};
 use nom::{
@@ -30,8 +30,8 @@ impl GameMetaData {
 pub(crate) fn parse_game_metadata(input: &[u8]) -> IResult<&[u8], GameMetaData> {
     let (rest, _) = take(5usize)(input)?;
     let (rest, host) = parse_player_metadata(rest)?;
-    let (rest, game_name) = zero_terminated(rest)?;
-    let (rest, _) = zero_terminated(rest)?;
+    let (rest, game_name) = zero_terminated_string(rest)?;
+    let (rest, _) = zero_terminated_string(rest)?;
     let (rest, encoded_map_info) = zero_terminated(rest)?;
     let (rest, nb_players) = le_u32(rest)?;
     let (rest, game_type) = take(4usize)(rest)?;
@@ -40,7 +40,7 @@ pub(crate) fn parse_game_metadata(input: &[u8]) -> IResult<&[u8], GameMetaData> 
         rest,
         GameMetaData {
             host,
-            game_name: String::from_utf8_lossy(game_name).to_string(),
+            game_name,
             encoded_map_info: encoded_map_info.to_vec(),
             nb_players,
             game_type: game_type.to_vec(),
