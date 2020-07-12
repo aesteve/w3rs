@@ -1,4 +1,5 @@
 use flate2::read::ZlibDecoder;
+use nom::bytes::complete::take;
 use nom::multi::many0;
 use nom::{number::complete::le_u16, IResult};
 use std::io;
@@ -33,20 +34,20 @@ pub(crate) fn compressed_data_blocks(input: &[u8]) -> IResult<&[u8], Vec<Compres
 }
 
 fn compressed_data_block(input: &[u8]) -> IResult<&[u8], CompressedDataBlock> {
-    do_parse!(
-        input,
-        block_size: le_u16
-            >> ignored: take!(2)
-            >> block_decompressed_size: le_u16
-            >> str_ignored: take!(4)
-            >> byt_ignored: take!(2)
-            >> compressed: take!(block_size)
-            >> (CompressedDataBlock {
-                block_size,
-                block_decompressed_size,
-                compressed: compressed.to_vec()
-            })
-    )
+    let (rest, block_size) = le_u16(input)?;
+    let (rest, _) = take(2usize)(rest)?;
+    let (rest, block_decompressed_size) = le_u16(rest)?;
+    let (rest, _) = take(4usize)(rest)?; // str ignored
+    let (rest, _) = take(2usize)(rest)?; // bytes ignored
+    let (rest, compressed) = take(block_size as usize)(rest)?;
+    Ok((
+        rest,
+        CompressedDataBlock {
+            block_size,
+            block_decompressed_size,
+            compressed: compressed.to_vec(),
+        },
+    ))
 }
 
 #[cfg(test)]
