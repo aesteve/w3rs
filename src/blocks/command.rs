@@ -1,7 +1,7 @@
 use crate::utils::zero_terminated;
 use nom::bytes::complete::take;
 use nom::combinator::map_res;
-use nom::multi::many0;
+use nom::multi::{count, many0};
 use nom::{
     number::complete::{le_f32, le_u16, le_u32, le_u8},
     IResult,
@@ -402,19 +402,10 @@ fn unit_selection(input: &[u8]) -> IResult<&[u8], UnitSelection> {
     Ok((rest, UnitSelection { object_1, object_2 }))
 }
 
-fn select_n_units(n: u16, input: &[u8]) -> IResult<&[u8], Vec<UnitSelection>> {
-    (0..n).fold(Ok((input, Vec::new())), |folded, _| {
-        let (rest, mut selection) = folded?;
-        let (rest, selected) = unit_selection(rest)?;
-        selection.push(selected);
-        Ok((rest, selection))
-    })
-}
-
 fn change_selection(input: &[u8]) -> IResult<&[u8], Action> {
     let (rest, select_mode) = parse_selection_mode(input)?;
     let (rest, nb_selection) = le_u16(rest)?;
-    let (rest, selected_units) = select_n_units(nb_selection, rest)?;
+    let (rest, selected_units) = count(unit_selection, nb_selection as usize)(rest)?;
     Ok((
         rest,
         Action::ChangeSelection(ChangeSelectionAction {
@@ -427,7 +418,7 @@ fn change_selection(input: &[u8]) -> IResult<&[u8], Action> {
 fn assign_group_hotkey(input: &[u8]) -> IResult<&[u8], Action> {
     let (rest, hotkey) = le_u8(input)?;
     let (rest, nb_selection) = le_u16(rest)?;
-    let (rest, selected_units) = select_n_units(nb_selection, rest)?;
+    let (rest, selected_units) = count(unit_selection, nb_selection as usize)(rest)?;
     Ok((
         rest,
         Action::AssignGroupHotkey(AssignGroupHotkeyAction {
