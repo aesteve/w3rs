@@ -22,10 +22,15 @@ use colored::Colorize;
 use std::hash::{Hash, Hasher};
 use std::path::Path;
 
+pub mod action;
 mod blocks;
+pub mod building;
+pub mod item;
 pub mod map;
 mod metadata;
 pub mod race;
+pub mod spell;
+pub mod unit;
 mod utils;
 
 #[derive(Debug, Eq)]
@@ -327,10 +332,12 @@ impl Display for GameBlock {
 
 #[cfg(test)]
 mod tests {
+    use crate::blocks::command::{Action, ItemUnitOrAction};
     use crate::blocks::gameblock::GameBlock;
     use crate::{Game, GameOutcome};
     use humantime::format_duration;
     use itertools::Itertools;
+    use nom::lib::std::collections::HashMap;
     use std::fs;
     use std::path::Path;
     use std::time::{Duration, SystemTime};
@@ -355,6 +362,35 @@ mod tests {
             }
             if block.should_display() {
                 println!("[{}] {}", format_duration(time), block);
+            }
+        }
+    }
+
+    #[test]
+    fn show_heros() {
+        let game = Game::parse(Path::new("./replays-ignore/Replay_2020_06_29_0026.w3g"));
+        let mut time = Duration::from_millis(0);
+        let mut players_selection: HashMap<u8, ItemUnitOrAction> = HashMap::new();
+        for block in &game.blocks {
+            if let GameBlock::TimeSlot(ts_block) = block {
+                time += Duration::from_millis(ts_block.time_increment as u64);
+                if let Some(cmd) = &ts_block.command {
+                    let player = &cmd.player;
+                    let actions = &cmd.actions;
+                    for action in actions {
+                        match action {
+                            Action::UnitBuildingAbilityNoParams(params) => {
+                                println!("[{}] Player {}", format_duration(time), player);
+                                println!("\t Unit: {:?}", players_selection.get(player).unwrap());
+                                println!("\t Action: {:?}", params);
+                            }
+                            Action::SelectSubgroup(selection) => {
+                                players_selection.insert(*player, selection.item.clone());
+                            }
+                            _ => {}
+                        }
+                    }
+                }
             }
         }
     }

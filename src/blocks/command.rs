@@ -1,3 +1,8 @@
+use crate::action::UnitAction;
+use crate::building::Building;
+use crate::item::Item;
+use crate::spell::{HeroSpell, Spell, UnitSpell};
+use crate::unit::{Hero, Unit};
 use crate::utils::zero_terminated_string;
 use nom::bytes::complete::take;
 use nom::combinator::map_res;
@@ -53,10 +58,17 @@ pub enum Action {
     Data([u8; 16]),
 }
 
-#[derive(Debug, PartialEq)]
-pub(crate) enum ItemOrUnit {
-    Str(String),
-    Binary([u8; 4]),
+#[derive(Debug, PartialEq, Clone)]
+pub(crate) enum ItemUnitOrAction {
+    Unit(Unit),
+    Hero(Hero),
+    Building(Building),
+    TrainedSpell(HeroSpell),
+    UsedSpell(Spell),
+    Item(Item),
+    Action(UnitAction),
+    UnknownStr(String),
+    UnknownBin([u8; 2]),
 }
 
 #[derive(Debug, PartialEq)]
@@ -66,22 +78,32 @@ pub struct Position {
 }
 
 #[derive(Debug, PartialEq)]
+pub enum Command {
+    Get,
+    TrainHero,
+    Order,
+    Summon,
+    // TODO
+    Unknown(u16),
+}
+
+#[derive(Debug, PartialEq)]
 pub struct UnitBuildingAbilityActionNoParams {
-    ability: u16,
-    item: ItemOrUnit,
+    command: Command,
+    item: ItemUnitOrAction,
 }
 
 #[derive(Debug, PartialEq)]
 pub struct UnitBuildingAbilityActionTargetPosition {
-    ability: u16,
-    item: ItemOrUnit,
+    command: Command,
+    item: ItemUnitOrAction,
     target_position: Position,
 }
 
 #[derive(Debug, PartialEq)]
 pub struct UnitBuildingAbilityActionTargetPositionTargetObjectId {
-    ability: u16,
-    item: ItemOrUnit,
+    command: Command,
+    item: ItemUnitOrAction,
     target_position: Position,
     object_1: u32,
     object_2: u32,
@@ -89,8 +111,8 @@ pub struct UnitBuildingAbilityActionTargetPositionTargetObjectId {
 
 #[derive(Debug, PartialEq)]
 pub struct GiveItemToUnitAction {
-    ability: u16,
-    item: ItemOrUnit,
+    command: Command,
+    item: ItemUnitOrAction,
     target_position: Position,
     object_1: u32,
     object_2: u32,
@@ -100,10 +122,10 @@ pub struct GiveItemToUnitAction {
 
 #[derive(Debug, PartialEq)]
 pub struct UnitBuildingAbilityActionTwoTargetPositions {
-    ability: u16,
-    item_1: ItemOrUnit,
+    command: Command,
+    item_1: ItemUnitOrAction,
     target_position_1: Position,
-    item_2: ItemOrUnit,
+    item_2: ItemUnitOrAction,
     target_position_2: Position,
 }
 
@@ -127,27 +149,27 @@ pub struct UnitSelection {
 
 #[derive(Debug, PartialEq)]
 pub struct SelectSubgroupAction {
-    item: ItemOrUnit,
+    pub(crate) item: ItemUnitOrAction,
     object_1: u32,
     object_2: u32,
 }
 
 #[derive(Debug, PartialEq)]
 pub struct SelectGroundItemAction {
-    object_1: ItemOrUnit,
-    object_2: ItemOrUnit,
+    object_1: ItemUnitOrAction,
+    object_2: ItemUnitOrAction,
 }
 
 #[derive(Debug, PartialEq)]
 pub struct CancelHeroRevivalAction {
-    unit_1: ItemOrUnit,
-    unit_2: ItemOrUnit,
+    unit_1: ItemUnitOrAction,
+    unit_2: ItemUnitOrAction,
 }
 
 #[derive(Debug, PartialEq)]
 pub struct RemoveUnitFromBuildingQueueAction {
     slot: u8,
-    unit: ItemOrUnit,
+    unit: ItemUnitOrAction,
 }
 
 #[derive(Debug, PartialEq)]
@@ -177,6 +199,20 @@ pub enum SelectionMode {
     Remove,
 }
 
+fn parse_ability(input: &[u8]) -> IResult<&[u8], Command> {
+    let (rest, command) = le_u16(input)?;
+    Ok((
+        rest,
+        match command {
+            0 => Command::Order,
+            64 | 66 => Command::Get,
+            70 => Command::TrainHero,
+            100 => Command::Summon,
+            _ => Command::Unknown(command),
+        },
+    ))
+}
+
 fn parse_selection_mode(input: &[u8]) -> IResult<&[u8], SelectionMode> {
     let (rest, selection) = le_u8(input)?;
     match selection {
@@ -203,20 +239,40 @@ pub(crate) fn parse_command(input: &[u8]) -> IResult<&[u8], CommandData> {
     ))
 }
 
-fn item_or_unit(input: &[u8]) -> IResult<&[u8], ItemOrUnit> {
+fn unit(input: &str) -> ItemUnitOrAction {
+    Building::from_str(input)
+        .map(ItemUnitOrAction::Building)
+        .or_else(|| Unit::from_str(input).map(ItemUnitOrAction::Unit))
+        .or_else(|| Hero::from_str(input).map(ItemUnitOrAction::Hero))
+        .or_else(|| HeroSpell::from_str(input).map(ItemUnitOrAction::TrainedSpell))
+        .or_else(|| Item::from_str(input).map(ItemUnitOrAction::Item))
+        .unwrap_or_else(|| ItemUnitOrAction::UnknownStr(input.to_string()))
+}
+
+fn item_spell(input: [u8; 2]) -> ItemUnitOrAction {
+    HeroSpell::from_bin(input)
+        .map(Spell::Hero)
+        .or_else(|| UnitSpell::from_bin(input).map(Spell::Unit))
+        .map(ItemUnitOrAction::UsedSpell)
+        .or_else(|| UnitAction::from_bin(input).map(ItemUnitOrAction::Action))
+        .unwrap_or_else(|| ItemUnitOrAction::UnknownBin(input))
+}
+
+fn item_or_unit(input: &[u8]) -> IResult<&[u8], ItemUnitOrAction> {
     let (rest, bytes) = take(4usize)(input)?;
     match bytes {
-        [_, _, 13, 0] => Ok((rest, ItemOrUnit::Binary(bytes[0..4].try_into().unwrap()))),
-        _ => Ok((
-            rest,
-            ItemOrUnit::Str(
+        [_, _, 13, 0] => Ok((rest, item_spell(bytes[0..2].try_into().unwrap()))),
+        _ => {
+            let unit = unit(
                 String::from_utf8_lossy(bytes)
                     .to_string()
                     .chars()
                     .rev()
-                    .collect(),
-            ),
-        )),
+                    .collect::<String>()
+                    .as_str(),
+            );
+            Ok((rest, unit))
+        }
     }
 }
 
@@ -298,18 +354,21 @@ fn save_game_finished(input: &[u8]) -> IResult<&[u8], Action> {
 }
 
 fn unit_building_ability_no_params(input: &[u8]) -> IResult<&[u8], Action> {
-    let (rest, ability) = le_u16(input)?;
+    let (rest, ability) = parse_ability(input)?;
     let (rest, item) = item_or_unit(rest)?;
     let (rest, _) = le_u32(rest)?;
     let (rest, _) = le_u32(rest)?;
     Ok((
         rest,
-        Action::UnitBuildingAbilityNoParams(UnitBuildingAbilityActionNoParams { ability, item }),
+        Action::UnitBuildingAbilityNoParams(UnitBuildingAbilityActionNoParams {
+            command: ability,
+            item,
+        }),
     ))
 }
 
 fn unit_building_ability_target_position(input: &[u8]) -> IResult<&[u8], Action> {
-    let (rest, ability) = le_u16(input)?;
+    let (rest, ability) = parse_ability(input)?;
     let (rest, item) = item_or_unit(rest)?;
     let (rest, _) = le_u32(rest)?; // TODO
     let (rest, _) = le_u32(rest)?; // TODO
@@ -317,7 +376,7 @@ fn unit_building_ability_target_position(input: &[u8]) -> IResult<&[u8], Action>
     Ok((
         rest,
         Action::UnitBuildingAbilityTargetPosition(UnitBuildingAbilityActionTargetPosition {
-            ability,
+            command: ability,
             item,
             target_position,
         }),
@@ -325,7 +384,7 @@ fn unit_building_ability_target_position(input: &[u8]) -> IResult<&[u8], Action>
 }
 
 fn unit_building_ability_target_position_target_object_id(input: &[u8]) -> IResult<&[u8], Action> {
-    let (rest, ability) = le_u16(input)?;
+    let (rest, ability) = parse_ability(input)?;
     let (rest, item) = item_or_unit(rest)?;
     let (rest, _) = le_u32(rest)?; // TODO
     let (rest, _) = le_u32(rest)?; // TODO
@@ -336,7 +395,7 @@ fn unit_building_ability_target_position_target_object_id(input: &[u8]) -> IResu
         rest,
         Action::UnitBuildingAbilityTargetPositionTargetObjectId(
             UnitBuildingAbilityActionTargetPositionTargetObjectId {
-                ability,
+                command: ability,
                 item,
                 target_position,
                 object_1,
@@ -347,7 +406,7 @@ fn unit_building_ability_target_position_target_object_id(input: &[u8]) -> IResu
 }
 
 fn give_item(input: &[u8]) -> IResult<&[u8], Action> {
-    let (rest, ability) = le_u16(input)?;
+    let (rest, ability) = parse_ability(input)?;
     let (rest, item) = item_or_unit(rest)?;
     let (rest, _) = le_u32(rest)?; // TODO
     let (rest, _) = le_u32(rest)?; // TODO
@@ -359,7 +418,7 @@ fn give_item(input: &[u8]) -> IResult<&[u8], Action> {
     Ok((
         rest,
         Action::GiveItem(GiveItemToUnitAction {
-            ability,
+            command: ability,
             item,
             target_position,
             object_1,
@@ -371,7 +430,7 @@ fn give_item(input: &[u8]) -> IResult<&[u8], Action> {
 }
 
 fn unit_building_ability_two_target_positions(input: &[u8]) -> IResult<&[u8], Action> {
-    let (rest, ability) = le_u16(input)?;
+    let (rest, ability) = parse_ability(input)?;
     let (rest, item_1) = item_or_unit(rest)?;
     let (rest, _) = le_u32(rest)?; // TODO
     let (rest, _) = le_u32(rest)?; // TODO
@@ -383,7 +442,7 @@ fn unit_building_ability_two_target_positions(input: &[u8]) -> IResult<&[u8], Ac
         rest,
         Action::UnitBuildingAbilityTwoTargetPositions(
             UnitBuildingAbilityActionTwoTargetPositions {
-                ability,
+                command: ability,
                 item_1,
                 target_position_1,
                 item_2,
