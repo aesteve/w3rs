@@ -1,6 +1,7 @@
 use crate::utils::zero_terminated;
 use nom::bytes::complete::take;
 use nom::combinator::map_res;
+use nom::multi::many0;
 use nom::{
     number::complete::{le_f32, le_u16, le_u32, le_u8},
     IResult,
@@ -184,15 +185,14 @@ fn parse_selection_mode(input: &[u8]) -> IResult<&[u8], SelectionMode> {
     }
 }
 
-named!(
-    parse_actions<&[u8], (Vec<Action>, &[u8])>,
-    many_till!(parse_action, eof!()) // can't sw
-);
+fn parse_actions(input: &[u8]) -> IResult<&[u8], Vec<Action>> {
+    many0(parse_action)(input)
+}
 
 pub(crate) fn parse_command(input: &[u8]) -> IResult<&[u8], CommandData> {
     let (rest, player) = le_u8(input)?;
     let (rest, length) = le_u16(rest)?;
-    let (rest, actions) = map_res(take(length as usize), parse_actions_vec)(rest)?;
+    let (rest, actions) = map_res(take(length as usize), parse_actions)(rest)?;
     Ok((
         rest,
         CommandData {
@@ -201,11 +201,6 @@ pub(crate) fn parse_command(input: &[u8]) -> IResult<&[u8], CommandData> {
             actions: actions.1,
         },
     ))
-}
-
-pub(crate) fn parse_actions_vec(input: &[u8]) -> IResult<&[u8], Vec<Action>> {
-    let (input, (res, _)) = parse_actions(input)?;
-    Ok((input, res))
 }
 
 fn item_or_unit(input: &[u8]) -> IResult<&[u8], ItemOrUnit> {
