@@ -396,34 +396,45 @@ fn unit_building_ability_two_target_positions(input: &[u8]) -> IResult<&[u8], Ac
     ))
 }
 
-fn change_selection(input: &[u8]) -> IResult<&[u8], Action> {
-    do_parse!(
-        input,
-        select_mode: parse_selection_mode
-            >> selected_units: length_count!(le_u16, unit_selection)
-            >> (Action::ChangeSelection(ChangeSelectionAction {
-                select_mode,
-                selected_units,
-            }))
-    )
-}
-
 fn unit_selection(input: &[u8]) -> IResult<&[u8], UnitSelection> {
     let (rest, object_1) = le_u32(input)?;
     let (rest, object_2) = le_u32(rest)?;
     Ok((rest, UnitSelection { object_1, object_2 }))
 }
 
+fn select_n_units(n: u16, input: &[u8]) -> IResult<&[u8], Vec<UnitSelection>> {
+    (0..n).fold(Ok((input, Vec::new())), |folded, _| {
+        let (rest, mut selection) = folded?;
+        let (rest, selected) = unit_selection(rest)?;
+        selection.push(selected);
+        Ok((rest, selection))
+    })
+}
+
+fn change_selection(input: &[u8]) -> IResult<&[u8], Action> {
+    let (rest, select_mode) = parse_selection_mode(input)?;
+    let (rest, nb_selection) = le_u16(rest)?;
+    let (rest, selected_units) = select_n_units(nb_selection, rest)?;
+    Ok((
+        rest,
+        Action::ChangeSelection(ChangeSelectionAction {
+            select_mode,
+            selected_units,
+        }),
+    ))
+}
+
 fn assign_group_hotkey(input: &[u8]) -> IResult<&[u8], Action> {
-    do_parse!(
-        input,
-        hotkey: le_u8
-            >> selected_units: length_count!(le_u16, unit_selection)
-            >> (Action::AssignGroupHotkey(AssignGroupHotkeyAction {
-                hotkey,
-                selected_units
-            }))
-    )
+    let (rest, hotkey) = le_u8(input)?;
+    let (rest, nb_selection) = le_u16(rest)?;
+    let (rest, selected_units) = select_n_units(nb_selection, rest)?;
+    Ok((
+        rest,
+        Action::AssignGroupHotkey(AssignGroupHotkeyAction {
+            hotkey,
+            selected_units,
+        }),
+    ))
 }
 
 fn select_group_hotkey(input: &[u8]) -> IResult<&[u8], Action> {
