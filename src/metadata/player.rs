@@ -1,5 +1,6 @@
 use crate::race::Race;
 use crate::utils::zero_terminated;
+use nom::bytes::complete::take;
 use nom::{number::complete::le_u8, IResult};
 
 #[derive(Debug, PartialEq, Clone)]
@@ -21,33 +22,33 @@ pub(crate) struct PlayerSlotMetaData {
 }
 
 pub(crate) fn parse_player_metadata(input: &[u8]) -> IResult<&[u8], PlayerMetaData> {
-    do_parse!(
-        input,
-        id: le_u8
-            >> name: zero_terminated
-            >> add_data_flag: le_u8
-            >> ignored: take!(add_data_flag)
-            >> (PlayerMetaData {
-                id,
-                name: String::from_utf8_lossy(name).to_string(),
-            })
-    )
+    let (rest, id) = le_u8(input)?;
+    let (rest, name) = zero_terminated(rest)?;
+    let (rest, add_data_flag) = le_u8(rest)?;
+    let (rest, _) = take(add_data_flag as usize)(rest)?;
+    Ok((
+        rest,
+        PlayerMetaData {
+            id,
+            name: String::from_utf8_lossy(name).to_string(),
+        },
+    ))
 }
 
 fn parse_player_metadata_in_list(input: &[u8]) -> IResult<&[u8], PlayerMetaData> {
-    do_parse!(
-        input,
-        ignored: take!(1)
-            >> id: le_u8
-            >> name: zero_terminated
-            >> add_data_flag: le_u8
-            >> ignored: take!(add_data_flag)
-            >> ignored2: take!(4)
-            >> (PlayerMetaData {
-                id,
-                name: String::from_utf8_lossy(name).to_string(),
-            })
-    )
+    let (rest, _) = take(1usize)(input)?;
+    let (rest, id) = le_u8(rest)?;
+    let (rest, name) = zero_terminated(rest)?;
+    let (rest, add_data_flag) = le_u8(rest)?;
+    let (rest, _) = take(add_data_flag as usize)(rest)?;
+    let (rest, _) = take(4usize)(rest)?;
+    Ok((
+        rest,
+        PlayerMetaData {
+            id,
+            name: String::from_utf8_lossy(name).to_string(),
+        },
+    ))
 }
 
 pub(crate) fn parse_players(
@@ -81,28 +82,28 @@ pub(crate) fn parse_players_slots(
 }
 
 fn parse_player_slot_record(input: &[u8]) -> IResult<&[u8], PlayerSlotMetaData> {
-    do_parse!(
-        input,
-        player_id: le_u8
-            >> ignored: take!(1)
-            >> slot_status: le_u8
-            >> computer_flag: le_u8
-            >> team_id: le_u8
-            >> color: le_u8
-            >> race_flag: le_u8
-            >> ai_strength: le_u8
-            >> handicap_flag: le_u8
-            >> (PlayerSlotMetaData {
-                player_id,
-                slot_status,
-                computer_flag,
-                team_id,
-                color,
-                race: Race::from_u8(race_flag),
-                ai_strength,
-                handicap_flag
-            })
-    )
+    let (rest, player_id) = le_u8(input)?;
+    let (rest, _) = take(1usize)(rest)?;
+    let (rest, slot_status) = le_u8(rest)?;
+    let (rest, computer_flag) = le_u8(rest)?;
+    let (rest, team_id) = le_u8(rest)?;
+    let (rest, color) = le_u8(rest)?;
+    let (rest, race_flag) = le_u8(rest)?;
+    let (rest, ai_strength) = le_u8(rest)?;
+    let (rest, handicap_flag) = le_u8(rest)?;
+    Ok((
+        rest,
+        PlayerSlotMetaData {
+            player_id,
+            slot_status,
+            computer_flag,
+            team_id,
+            color,
+            race: Race::from_u8(race_flag),
+            ai_strength,
+            handicap_flag,
+        },
+    ))
 }
 
 #[cfg(test)]
