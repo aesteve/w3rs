@@ -1,6 +1,7 @@
 use crate::metadata::player::{parse_player_metadata, PlayerMetaData};
 use crate::utils::zero_terminated;
 use hex_string::u8_to_hex_string;
+use nom::bytes::complete::{take, take_while};
 use nom::{
     number::complete::{le_u16, le_u32, le_u8},
     IResult,
@@ -27,25 +28,25 @@ impl GameMetaData {
 }
 
 pub(crate) fn parse_game_metadata(input: &[u8]) -> IResult<&[u8], GameMetaData> {
-    do_parse!(
-        input,
-        ignored: take!(5)
-            >> host: parse_player_metadata
-            >> game_name: zero_terminated
-            >> discard: zero_terminated
-            >> encoded_map_info: zero_terminated
-            >> nb_players: le_u32
-            >> game_type: take!(4)
-            >> language: take!(4)
-            >> (GameMetaData {
-                host,
-                game_name: String::from_utf8_lossy(game_name).to_string(),
-                encoded_map_info: encoded_map_info.to_vec(),
-                nb_players,
-                game_type: game_type.to_vec(),
-                language: language.to_vec(),
-            })
-    )
+    let (rest, _) = take(5usize)(input)?;
+    let (rest, host) = parse_player_metadata(rest)?;
+    let (rest, game_name) = zero_terminated(rest)?;
+    let (rest, _) = zero_terminated(rest)?;
+    let (rest, encoded_map_info) = zero_terminated(rest)?;
+    let (rest, nb_players) = le_u32(rest)?;
+    let (rest, game_type) = take(4usize)(rest)?;
+    let (rest, language) = take(4usize)(rest)?;
+    Ok((
+        rest,
+        GameMetaData {
+            host,
+            game_name: String::from_utf8_lossy(game_name).to_string(),
+            encoded_map_info: encoded_map_info.to_vec(),
+            nb_players,
+            game_type: game_type.to_vec(),
+            language: language.to_vec(),
+        },
+    ))
 }
 
 #[derive(Debug, PartialEq)]
@@ -57,20 +58,20 @@ pub struct GameStartRecord {
 }
 
 pub fn parse_start_record(input: &[u8]) -> IResult<&[u8], GameStartRecord> {
-    do_parse!(
-        input,
-        check_game_start_record: le_u8
-            >> ignored: take_while!(|b: u8| b != 25)
-            >> game_start_record: le_u8
-            >> data_byte_count: le_u16
-            >> slot_record_count: le_u8
-            >> (GameStartRecord {
-                check_game_start_record,
-                game_start_record,
-                data_byte_count,
-                slot_record_count
-            })
-    )
+    let (rest, check_game_start_record) = le_u8(input)?;
+    let (rest, _) = take_while(|b: u8| b != 25)(rest)?;
+    let (rest, game_start_record) = le_u8(rest)?;
+    let (rest, data_byte_count) = le_u16(rest)?;
+    let (rest, slot_record_count) = le_u8(rest)?;
+    Ok((
+        rest,
+        GameStartRecord {
+            check_game_start_record,
+            game_start_record,
+            data_byte_count,
+            slot_record_count,
+        },
+    ))
 }
 
 #[derive(Debug, PartialEq)]
@@ -81,17 +82,17 @@ pub struct GamePosData {
 }
 
 pub fn parse_game_pos(input: &[u8]) -> IResult<&[u8], GamePosData> {
-    do_parse!(
-        input,
-        random_seed: le_u32
-            >> select_mode: le_u8
-            >> start_spot_count: le_u8
-            >> (GamePosData {
-                random_seed,
-                select_mode: u8_to_hex_string(&select_mode),
-                start_spot_count,
-            })
-    )
+    let (rest, random_seed) = le_u32(input)?;
+    let (rest, select_mode) = le_u8(rest)?;
+    let (rest, start_spot_count) = le_u8(rest)?;
+    Ok((
+        rest,
+        GamePosData {
+            random_seed,
+            select_mode: u8_to_hex_string(&select_mode),
+            start_spot_count,
+        },
+    ))
 }
 
 #[cfg(test)]
