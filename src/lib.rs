@@ -332,7 +332,7 @@ impl Display for GameBlock {
 
 #[cfg(test)]
 mod tests {
-    use crate::blocks::command::{Action, ItemUnitOrAction};
+    use crate::blocks::command::{GameComponent, SelectedComponent};
     use crate::blocks::gameblock::GameBlock;
     use crate::{Game, GameOutcome};
     use humantime::format_duration;
@@ -352,6 +352,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn parse_ts_blocks() {
         let game = Game::parse(Path::new("./replays-ignore/Replay_2020_06_29_0026.w3g"));
         println!("Blocks:");
@@ -367,27 +368,46 @@ mod tests {
     }
 
     #[test]
-    fn show_heros() {
+    fn fold_units() {
         let game = Game::parse(Path::new("./replays-ignore/Replay_2020_06_29_0026.w3g"));
         let mut time = Duration::from_millis(0);
-        let mut players_selection: HashMap<u8, ItemUnitOrAction> = HashMap::new();
+        let mut game_components: HashMap<u32, GameComponent> = HashMap::new();
+        let mut player_selection: HashMap<u8, Vec<SelectedComponent>> = HashMap::new();
         for block in &game.blocks {
             if let GameBlock::TimeSlot(ts_block) = block {
                 time += Duration::from_millis(ts_block.time_increment as u64);
                 if let Some(cmd) = &ts_block.command {
-                    let player = &cmd.player;
+                    let player = cmd.player;
                     let actions = &cmd.actions;
                     for action in actions {
-                        match action {
-                            Action::UnitBuildingAbilityNoParams(params) => {
-                                println!("[{}] Player {}", format_duration(time), player);
-                                println!("\t Unit: {:?}", players_selection.get(player).unwrap());
-                                println!("\t Action: {:?}", params);
+                        if let Some(selection) = action.selection() {
+                            for selected in selection.clone() {
+                                if let Some(component) = selected.kind {
+                                    game_components.insert(selected.id_1, component.clone());
+                                    game_components.insert(selected.id_2, component.clone());
+                                }
                             }
-                            Action::SelectSubgroup(selection) => {
-                                players_selection.insert(*player, selection.item.clone());
+                            if selection.is_empty() {
+                                player_selection.remove(&player);
+                            } else {
+                                let enhanced_selection: Vec<SelectedComponent> = selection
+                                    .iter()
+                                    .map(|comp| SelectedComponent {
+                                        id_1: comp.id_1,
+                                        id_2: comp.id_2,
+                                        kind: game_components
+                                            .get(&comp.id_1)
+                                            .or_else(|| game_components.get(&comp.id_2))
+                                            .map(GameComponent::clone),
+                                    })
+                                    .collect();
+                                player_selection.insert(player, enhanced_selection);
                             }
-                            _ => {}
+                        }
+                        if action.should_display() {
+                            println!("[{}] Player {}:", format_duration(time), player);
+                            println!("\t Selection: {:?}", player_selection.get(&player));
+                            println!("\t {:?}", action);
                         }
                     }
                 }
@@ -396,6 +416,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn parse_all() {
         let start = SystemTime::now();
         let mut games = parse_replays("./replays/");
@@ -414,6 +435,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn test_outcome_one_on_one() {
         let one_on_one_replay = Path::new("./replays-ignore/Replay_2020_06_29_0026.w3g");
         let one_on_one_game = Game::parse(one_on_one_replay);
