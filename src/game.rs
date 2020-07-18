@@ -11,6 +11,7 @@ use crate::metadata::game::{
 use crate::metadata::player::{parse_players, parse_players_slots};
 use crate::metadata::replay::parse_header;
 use crate::player::Player;
+use crate::unit::{Hero, Inventory};
 use itertools::Itertools;
 use std::collections::HashMap;
 use std::fmt::{Debug, Display, Formatter};
@@ -183,6 +184,10 @@ impl Game {
             .collect()
     }
 
+    pub fn player(&self, player_id: u8) -> Option<&Player> {
+        self.players.iter().find(|p| p.id == player_id)
+    }
+
     pub fn game_type(&self) -> (GameContext, GameType) {
         let context = match self.game_type[0].as_str() {
             "09" => GameContext::Custom,
@@ -212,6 +217,8 @@ impl Game {
         let mut game_components: HashMap<u32, GameComponent> = HashMap::new();
         let mut player_selection: HashMap<u8, Vec<SelectedComponent>> = HashMap::new();
         let mut events: Vec<GameEvent> = Vec::new();
+        let mut inventories: HashMap<Hero, Inventory> = HashMap::new();
+        let mut player_hotkey_groups: HashMap<u8, Vec<SelectedComponent>> = HashMap::new();
         for block in &self.blocks {
             match block {
                 GameBlock::TimeSlot(ts_block) => {
@@ -221,7 +228,7 @@ impl Game {
                         let actions = &cmd.actions;
                         for action in actions {
                             // Update selection
-                            if let Some(selection) = action.selection() {
+                            if let Some(selection) = action.selection(&mut player_hotkey_groups) {
                                 for selected in selection.clone() {
                                     if let Some(component) = selected.kind {
                                         game_components.insert(selected.id_1, component.clone());
@@ -247,8 +254,12 @@ impl Game {
                             }
                             //
                             if let Some(selected_units) = player_selection.get(&player) {
-                                let parsed =
-                                    from_parsed_action(selected_units, action, &game_components);
+                                let parsed = from_parsed_action(
+                                    selected_units,
+                                    action,
+                                    &game_components,
+                                    &mut inventories,
+                                );
                                 if let Some(action) = parsed {
                                     events.push(GameEvent {
                                         time,
@@ -282,7 +293,6 @@ impl Game {
                 _ => {}
             }
         }
-        println!("eventssize: {}", events.len());
         events
     }
 }
@@ -334,28 +344,51 @@ impl Display for GameBlock {
 
 #[cfg(test)]
 mod tests {
-    use crate::event::Event;
+    use crate::action::Action;
+    use crate::event::{Event, GameEvent};
     use crate::game::Game;
+    use crate::player::player_msg_color;
+    use colored::{Color, Colorize};
     use humantime::format_duration;
     use std::path::Path;
 
     #[test]
     fn parse_replay_events() {
-        let game = Game::parse(Path::new("./replays-ignore/Replay_2020_06_29_0026.w3g"));
+        let game = Game::parse(Path::new("./replays-ignore/Replay_2020_07_17_2128.w3g"));
+        println!("Anayzed game:");
+        println!("{}", game);
         let events = game.events();
-        for event in events {
-            print!(
-                "[{}] Player {}",
-                format_duration(event.time),
-                event.player_id
-            );
-            match event.event {
-                Event::ChatMsg { addressee, message } => println!(": {} {}", addressee, message),
+        for event in events
+            .iter()
+            .filter(|e| match &e.event {
                 Event::Action {
-                    selection: _,
                     action,
-                } => {
-                    println!(" {}", action);
+                    selection: _,
+                } => match action {
+                    Action::Move(_) => false,
+                    _ => true,
+                },
+                _ => true,
+            })
+            .collect::<Vec<&GameEvent>>()
+        {
+            let color = game
+                .player(event.player_id)
+                .and_then(player_msg_color)
+                .unwrap_or_else(|| Color::White);
+            print!(
+                "{}",
+                format!(
+                    "[{}] Player {}: ",
+                    format_duration(event.time),
+                    event.player_id
+                )
+                .color(color)
+            );
+            match &event.event {
+                Event::ChatMsg { addressee, message } => println!("{} {}", addressee, message),
+                Event::Action { selection, action } => {
+                    println!("{}", format!("{:?} {}", selection, action).color(color));
                 }
             };
         }

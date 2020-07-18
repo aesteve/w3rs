@@ -4,6 +4,7 @@ extern crate nom;
 pub mod action;
 mod blocks;
 pub mod building;
+pub mod environment;
 pub mod event;
 pub mod game;
 pub mod item;

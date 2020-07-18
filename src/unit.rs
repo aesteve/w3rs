@@ -1,3 +1,53 @@
+use crate::item::Item;
+
+// Structure holding an hero item inventory
+#[derive(Debug, PartialEq)]
+pub struct Inventory {
+    slots: [Option<Item>; 6],
+}
+
+impl Default for Inventory {
+    fn default() -> Self {
+        Inventory {
+            slots: [None, None, None, None, None, None],
+        }
+    }
+}
+
+impl Inventory {
+    fn idx_from_usize(u: u8) -> usize {
+        match u as usize {
+            1 => 0,
+            2 => 1,
+            4 => 2,
+            5 => 3,
+            7 => 4,
+            8 => 5,
+            other => panic!("Cannot understand item slot number {}", other),
+        }
+    }
+
+    pub fn use_slot(&mut self, slot: u8) -> Option<Item> {
+        self.slots[Inventory::idx_from_usize(slot)].clone() // TODO: item "charges"
+    }
+
+    pub fn add_item(&mut self, slot: u8, item: Item) {
+        self.slots[Inventory::idx_from_usize(slot)] = Some(item)
+    }
+
+    pub fn drop(&mut self, slot: u8) {
+        self.slots[Inventory::idx_from_usize(slot)] = None
+    }
+
+    pub fn swap(&mut self, slots: (u8, u8)) {
+        let idx_1 = Inventory::idx_from_usize(slots.0);
+        let idx_2 = Inventory::idx_from_usize(slots.1);
+        let fst = self.slots[idx_1].clone();
+        self.slots[idx_1] = self.slots[idx_2].clone();
+        self.slots[idx_2] = fst;
+    }
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum Unit {
     // NE
@@ -7,8 +57,10 @@ pub enum Unit {
     GlaiveThrower,
     Dryad,
     DruidOfTheClaw,
+    DruidOfTheClawBear,
     MountainGiant,
     DruidOfTheTalon,
+    DruidOfTheTalonCrow,
     FaerieDragon,
     Hippogryph,
     HippogryphRider,
@@ -31,9 +83,6 @@ pub enum Unit {
     WindRider,
     TrollBatrider,
     Tauren,
-    SpiritWolf,
-    DireWolf,
-    ShadowWolf,
     // HU
     Footman,
     Knight,
@@ -60,6 +109,19 @@ pub enum Unit {
     Shade,
     ObsidianStatue,
     Destroyer,
+    // Summons
+    SerpentWard,
+    SpiritWolf,
+    DireWolf,
+    ShadowWolf,
+    SkeletonWarrior,
+    SkeletalMage,
+    CarrionScarab1,
+    CarrionScarab2,
+    CarrionScarab3,
+    CarrionScarab2Burrowed,
+    CarrionScarab3Burrowed,
+    // TODO:
     // Neutral
     SkeletalMarksman,
     BurningArcher,
@@ -154,7 +216,7 @@ pub enum Unit {
     NetherDragon,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Eq, Hash)]
 pub enum Hero {
     // NE
     DemonHunter,
@@ -245,12 +307,15 @@ impl Unit {
             "ebal" => Some(Unit::GlaiveThrower),
             "echm" => Some(Unit::Chimaera),
             "edoc" => Some(Unit::DruidOfTheClaw),
+            "edcm" => Some(Unit::DruidOfTheClawBear),
             "edot" => Some(Unit::DruidOfTheTalon),
+            "edtm" => Some(Unit::DruidOfTheTalonCrow),
             "ewsp" => Some(Unit::Wisp),
             "esen" => Some(Unit::Huntress),
             "earc" => Some(Unit::Archer),
             "edry" => Some(Unit::Dryad),
-            "ehip" => Some(Unit::Hippogryph), // TODO: hippo rider?
+            "ehip" => Some(Unit::Hippogryph),
+            "ehpr" => Some(Unit::HippogryphRider),
             "emtg" => Some(Unit::MountainGiant),
             "efdr" => Some(Unit::FaerieDragon),
             // OR
@@ -281,6 +346,18 @@ impl Unit {
             "ushd" => Some(Unit::Shade),
             "uobs" => Some(Unit::ObsidianStatue),
             "ubsp" => Some(Unit::Destroyer),
+            // Summons
+            "osp1" | "osp2" | "osp3" | "osp4" => Some(Unit::SerpentWard),
+            "osw1" => Some(Unit::SpiritWolf),
+            "osw2" => Some(Unit::DireWolf),
+            "osw3" => Some(Unit::ShadowWolf),
+            "uske" => Some(Unit::SkeletonWarrior),
+            "uskm" => Some(Unit::SkeletalMage),
+            "ucs1" => Some(Unit::CarrionScarab1),
+            "ucs2" => Some(Unit::CarrionScarab2),
+            "ucs3" => Some(Unit::CarrionScarab3),
+            "ucsB" => Some(Unit::CarrionScarab2Burrowed),
+            "ucsC" => Some(Unit::CarrionScarab3Burrowed),
             // Neutral
             "nskm" => Some(Unit::SkeletalMarksman),
             "nskf" => Some(Unit::BurningArcher),

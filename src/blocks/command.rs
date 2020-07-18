@@ -1,5 +1,6 @@
 use crate::blocks::action::UnitCommand;
 use crate::building::{Building, Upgrade};
+use crate::environment::Environment;
 use crate::item::Item;
 use crate::spell::{HeroSpell, Spell, UnitSpell};
 use crate::unit::{Hero, Unit};
@@ -12,6 +13,7 @@ use nom::{
     number::complete::{le_f32, le_u16, le_u32, le_u8},
     IResult,
 };
+use std::collections::HashMap;
 use std::convert::TryInto;
 use std::fmt::Display;
 
@@ -68,9 +70,11 @@ pub(crate) struct SelectedComponent {
 }
 
 impl ParsedAction {
-    /// SelectSubgroup(SelectSubgroupAction { item: Unit(Peon), object_1: 28250, object_2: 28253 })
     #[allow(dead_code)]
-    pub(crate) fn selection(&self) -> Option<Vec<SelectedComponent>> {
+    pub(crate) fn selection(
+        &self,
+        hotkey_selections: &mut HashMap<u8, Vec<SelectedComponent>>,
+    ) -> Option<Vec<SelectedComponent>> {
         match self {
             ParsedAction::SelectSubgroup(action) => Some(
                 [SelectedComponent {
@@ -84,18 +88,20 @@ impl ParsedAction {
                 if action.select_mode == SelectionMode::Remove {
                     Some(Vec::new())
                 } else {
-                    Some(
-                        action
-                            .selected_units
-                            .iter()
-                            .map(|sel| SelectedComponent {
-                                id_1: sel.object_1,
-                                id_2: sel.object_2,
-                                kind: None,
-                            })
-                            .collect(),
-                    )
+                    Some(units_as_selection(&action.selected_units))
                 }
+            }
+            ParsedAction::SelectGroupHotkey(hotkey) => {
+                hotkey_selections.get(hotkey).map(|sel| sel.to_vec())
+            }
+            ParsedAction::AssignGroupHotkey(assign_hotkey) => {
+                hotkey_selections.insert(
+                    assign_hotkey.hotkey,
+                    units_as_selection(&assign_hotkey.selected_units),
+                );
+                hotkey_selections
+                    .get(&assign_hotkey.hotkey)
+                    .map(|sel| sel.to_vec())
             }
             _ => None,
         }
@@ -125,6 +131,17 @@ impl ParsedAction {
     }
 }
 
+fn units_as_selection(units: &[UnitSelection]) -> Vec<SelectedComponent> {
+    units
+        .iter()
+        .map(|sel| SelectedComponent {
+            id_1: sel.object_1,
+            id_2: sel.object_2,
+            kind: None,
+        })
+        .collect()
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum GameComponent {
     // FIXME: replace by a public struct
@@ -136,6 +153,7 @@ pub enum GameComponent {
     UsedSpell(Spell),
     Item(Item),
     Action(UnitCommand),
+    Environment(Environment),
     UnknownStr(String),
     UnknownBin([u8; 2]),
 }
@@ -204,8 +222,8 @@ pub struct UnitBuildingAbilityActionTwoTargetPositions {
     command: Command,
     item_1: GameComponent,
     target_position_1: Position,
-    item_2: GameComponent,
-    target_position_2: Position,
+    pub(crate) item_2: GameComponent,
+    pub(crate) target_position_2: Position,
 }
 
 #[derive(Debug, PartialEq)]
@@ -317,6 +335,7 @@ fn str_component(input: &str) -> GameComponent {
         .or_else(|| HeroSpell::from_str(input).map(GameComponent::TrainedSpell))
         .or_else(|| Item::from_str(input).map(GameComponent::Item))
         .or_else(|| Upgrade::from_str(input).map(GameComponent::Upgrade))
+        .or_else(|| Environment::from_str(input).map(GameComponent::Environment))
         .unwrap_or_else(|| GameComponent::UnknownStr(input.to_string()))
 }
 
