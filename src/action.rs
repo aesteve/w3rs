@@ -29,16 +29,12 @@ pub(crate) fn from_parsed_action(
                 }
             } else if unit_or_hero_selected(selection) {
                 match &ability.item {
-                    GameComponent::UsedSpell(spell) => Some(Action::Spell {
+                    GameComponent::UsedSpell(spell) => Some(Action::UsedSpell {
                         spell: spell.clone(),
                         target: None,
                         position: None,
                     }),
-                    GameComponent::TrainedSpell(spell) => Some(Action::Spell {
-                        spell: Spell::Hero(spell.clone()),
-                        target: None,
-                        position: None,
-                    }),
+                    GameComponent::TrainedSpell(spell) => Some(Action::TrainSpell(spell.clone())),
                     GameComponent::Action(cmd) => match cmd {
                         UnitCommand::UseItem(slot) => {
                             use_item_from_inventory(*slot, selection, inventories, ability)
@@ -69,7 +65,7 @@ pub(crate) fn from_parsed_action(
                             .get(&ability.object_1)
                             .or_else(|| components.get(&ability.object_2))
                             .map(GameComponent::clone);
-                        Some(Action::Spell {
+                        Some(Action::UsedSpell {
                             spell: spell.clone(),
                             target,
                             position: Some(ability.target_position.clone()),
@@ -221,7 +217,7 @@ pub enum Action {
         building: Building,
         position: Position,
     },
-    Spell {
+    UsedSpell {
         spell: Spell,
         target: Option<GameComponent>,
         position: Option<Position>,
@@ -250,7 +246,7 @@ impl Display for Action {
             Action::Build { building, position } => {
                 write!(f, "built {:?} at {}", building, position)
             }
-            Action::Spell {
+            Action::UsedSpell {
                 spell,
                 target,
                 position,
