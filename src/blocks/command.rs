@@ -1,4 +1,4 @@
-use crate::action::UnitAction;
+use crate::blocks::action::UnitCommand;
 use crate::building::{Building, Upgrade};
 use crate::item::Item;
 use crate::spell::{HeroSpell, Spell, UnitSpell};
@@ -6,22 +6,24 @@ use crate::unit::{Hero, Unit};
 use crate::utils::zero_terminated_string;
 use nom::bytes::complete::take;
 use nom::combinator::map_res;
+use nom::lib::std::fmt::Formatter;
 use nom::multi::{count, many0};
 use nom::{
     number::complete::{le_f32, le_u16, le_u32, le_u8},
     IResult,
 };
 use std::convert::TryInto;
+use std::fmt::Display;
 
 #[derive(Debug, PartialEq)]
 pub struct CommandData {
     pub player: u8,
     length: u16,
-    pub actions: Vec<Action>,
+    pub(crate) actions: Vec<ParsedAction>,
 }
 
 #[derive(Debug, PartialEq)]
-pub enum Action {
+pub(crate) enum ParsedAction {
     Pause,
     Resume,
     SetSpeed(u8),
@@ -65,12 +67,12 @@ pub(crate) struct SelectedComponent {
     pub(crate) kind: Option<GameComponent>,
 }
 
-impl Action {
+impl ParsedAction {
     /// SelectSubgroup(SelectSubgroupAction { item: Unit(Peon), object_1: 28250, object_2: 28253 })
     #[allow(dead_code)]
     pub(crate) fn selection(&self) -> Option<Vec<SelectedComponent>> {
         match self {
-            Action::SelectSubgroup(action) => Some(
+            ParsedAction::SelectSubgroup(action) => Some(
                 [SelectedComponent {
                     id_1: action.object_1,
                     id_2: action.object_2,
@@ -78,7 +80,7 @@ impl Action {
                 }]
                 .to_vec(),
             ),
-            Action::ChangeSelection(action) => {
+            ParsedAction::ChangeSelection(action) => {
                 if action.select_mode == SelectionMode::Remove {
                     Some(Vec::new())
                 } else {
@@ -101,14 +103,14 @@ impl Action {
 
     fn discard(&self) -> bool {
         match self {
-            Action::W3MMD(_)
-            | Action::ContinueGame
-            | Action::EscapedPressed
-            | Action::ScenarioTrigger
-            | Action::MapTriggerChat(_)
-            | Action::SaveFinished
-            | Action::PreSubselection
-            | Action::Unknown => true,
+            ParsedAction::W3MMD(_)
+            | ParsedAction::ContinueGame
+            | ParsedAction::EscapedPressed
+            | ParsedAction::ScenarioTrigger
+            | ParsedAction::MapTriggerChat(_)
+            | ParsedAction::SaveFinished
+            | ParsedAction::PreSubselection
+            | ParsedAction::Unknown => true,
             _ => false,
         }
     }
@@ -117,14 +119,15 @@ impl Action {
     pub(crate) fn should_display(&self) -> bool {
         !self.discard()
             && match self {
-                Action::ChangeSelection(_) | Action::SelectSubgroup(_) => false,
+                ParsedAction::ChangeSelection(_) | ParsedAction::SelectSubgroup(_) => false,
                 _ => true,
             }
     }
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub(crate) enum GameComponent {
+pub enum GameComponent {
+    // FIXME: replace by a public struct
     Unit(Unit),
     Hero(Hero),
     Building(Building),
@@ -132,15 +135,21 @@ pub(crate) enum GameComponent {
     TrainedSpell(HeroSpell),
     UsedSpell(Spell),
     Item(Item),
-    Action(UnitAction),
+    Action(UnitCommand),
     UnknownStr(String),
     UnknownBin([u8; 2]),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Position {
     x: f32,
     y: f32,
+}
+
+impl Display for Position {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{{x={},y={}}}", self.x, self.y)
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -160,7 +169,7 @@ pub enum Command {
 #[derive(Debug, PartialEq)]
 pub struct UnitBuildingAbilityActionNoParams {
     command: Command,
-    item: GameComponent,
+    pub(crate) item: GameComponent,
 }
 
 #[derive(Debug, PartialEq)]
@@ -173,10 +182,10 @@ pub struct UnitBuildingAbilityActionTargetPosition {
 #[derive(Debug, PartialEq)]
 pub struct UnitBuildingAbilityActionTargetPositionTargetObjectId {
     command: Command,
-    item: GameComponent,
-    target_position: Position,
-    object_1: u32,
-    object_2: u32,
+    pub(crate) item: GameComponent,
+    pub(crate) target_position: Position,
+    pub(crate) object_1: u32,
+    pub(crate) object_2: u32,
 }
 
 #[derive(Debug, PartialEq)]
@@ -282,7 +291,7 @@ fn parse_selection_mode(input: &[u8]) -> IResult<&[u8], SelectionMode> {
     }
 }
 
-fn parse_actions(input: &[u8]) -> IResult<&[u8], Vec<Action>> {
+fn parse_actions(input: &[u8]) -> IResult<&[u8], Vec<ParsedAction>> {
     many0(parse_action)(input)
 }
 
@@ -316,7 +325,7 @@ fn binary_component(input: [u8; 2]) -> GameComponent {
         .map(Spell::Hero)
         .or_else(|| UnitSpell::from_bin(input).map(Spell::Unit))
         .map(GameComponent::UsedSpell)
-        .or_else(|| UnitAction::from_bin(input).map(GameComponent::Action))
+        .or_else(|| UnitCommand::from_bin(input).map(GameComponent::Action))
         .unwrap_or_else(|| GameComponent::UnknownBin(input))
 }
 
@@ -338,14 +347,14 @@ fn game_component(input: &[u8]) -> IResult<&[u8], GameComponent> {
     }
 }
 
-pub(crate) fn parse_action(input: &[u8]) -> IResult<&[u8], Action> {
+pub(crate) fn parse_action(input: &[u8]) -> IResult<&[u8], ParsedAction> {
     let (rest, kind) = le_u8(input)?;
     match kind {
-        1 => Ok((rest, Action::Pause)),
-        2 => Ok((rest, Action::Resume)),
+        1 => Ok((rest, ParsedAction::Pause)),
+        2 => Ok((rest, ParsedAction::Resume)),
         3 => set_speed_game(rest),
-        4 => Ok((rest, Action::IncreaseGameSpeed)),
-        5 => Ok((rest, Action::DecreaseGameSpeed)),
+        4 => Ok((rest, ParsedAction::IncreaseGameSpeed)),
+        5 => Ok((rest, ParsedAction::DecreaseGameSpeed)),
         6 => save_game(rest),
         7 => save_game_finished(rest),
         16 => unit_building_ability_no_params(rest),
@@ -357,7 +366,7 @@ pub(crate) fn parse_action(input: &[u8]) -> IResult<&[u8], Action> {
         23 => assign_group_hotkey(rest),
         24 => select_group_hotkey(rest),
         25 => select_subgroup(rest),
-        26 => Ok((rest, Action::PreSubselection)),
+        26 => Ok((rest, ParsedAction::PreSubselection)),
         27 => unknown_9(rest),
         28 => select_ground_item(rest),
         29 => cancel_hero_revival(rest),
@@ -371,11 +380,11 @@ pub(crate) fn parse_action(input: &[u8]) -> IResult<&[u8], Action> {
         80 => change_ally_options(rest),
         81 => transfer_resources(rest),
         96 => map_trigger_chat(rest),
-        97 => Ok((rest, Action::EscapedPressed)),
+        97 => Ok((rest, ParsedAction::EscapedPressed)),
         98 => scenario_trigger(rest),
-        101 => Ok((rest, Action::ChooseHeroSkillSubmenu)),
-        102 => Ok((rest, Action::ChooseHeroSkillSubmenu)),
-        103 => Ok((rest, Action::EnterBuildingSubmenu)),
+        101 => Ok((rest, ParsedAction::ChooseHeroSkillSubmenu)),
+        102 => Ok((rest, ParsedAction::ChooseHeroSkillSubmenu)),
+        103 => Ok((rest, ParsedAction::EnterBuildingSubmenu)),
         104 => minimap_signal(rest),
         105 => continue_game(rest),
         106 => continue_game(rest),
@@ -395,41 +404,41 @@ fn parse_position(input: &[u8]) -> IResult<&[u8], Position> {
     Ok((rest, Position { x, y }))
 }
 
-fn unknown_bytes(input: &[u8], len: usize) -> IResult<&[u8], Action> {
+fn unknown_bytes(input: &[u8], len: usize) -> IResult<&[u8], ParsedAction> {
     let (rest, _) = take(len)(input)?;
-    Ok((rest, Action::Unknown))
+    Ok((rest, ParsedAction::Unknown))
 }
 
-fn set_speed_game(input: &[u8]) -> IResult<&[u8], Action> {
+fn set_speed_game(input: &[u8]) -> IResult<&[u8], ParsedAction> {
     let (rest, speed) = le_u8(input)?;
-    Ok((rest, Action::SetSpeed(speed)))
+    Ok((rest, ParsedAction::SetSpeed(speed)))
 }
 
-fn save_game(input: &[u8]) -> IResult<&[u8], Action> {
+fn save_game(input: &[u8]) -> IResult<&[u8], ParsedAction> {
     let (rest, name) = zero_terminated_string(input)?;
-    Ok((rest, Action::Save(name)))
+    Ok((rest, ParsedAction::Save(name)))
 }
 
-fn save_game_finished(input: &[u8]) -> IResult<&[u8], Action> {
+fn save_game_finished(input: &[u8]) -> IResult<&[u8], ParsedAction> {
     let (rest, _) = le_u16(input)?;
-    Ok((rest, Action::SaveFinished))
+    Ok((rest, ParsedAction::SaveFinished))
 }
 
-fn unit_building_ability_no_params(input: &[u8]) -> IResult<&[u8], Action> {
+fn unit_building_ability_no_params(input: &[u8]) -> IResult<&[u8], ParsedAction> {
     let (rest, ability) = parse_ability(input)?;
     let (rest, item) = game_component(rest)?;
     let (rest, _) = le_u32(rest)?;
     let (rest, _) = le_u32(rest)?;
     Ok((
         rest,
-        Action::UnitBuildingAbilityNoParams(UnitBuildingAbilityActionNoParams {
+        ParsedAction::UnitBuildingAbilityNoParams(UnitBuildingAbilityActionNoParams {
             command: ability,
             item,
         }),
     ))
 }
 
-fn unit_building_ability_target_position(input: &[u8]) -> IResult<&[u8], Action> {
+fn unit_building_ability_target_position(input: &[u8]) -> IResult<&[u8], ParsedAction> {
     let (rest, ability) = parse_ability(input)?;
     let (rest, item) = game_component(rest)?;
     let (rest, _) = le_u32(rest)?; // TODO
@@ -437,7 +446,7 @@ fn unit_building_ability_target_position(input: &[u8]) -> IResult<&[u8], Action>
     let (rest, target_position) = parse_position(rest)?;
     Ok((
         rest,
-        Action::UnitBuildingAbilityTargetPosition(UnitBuildingAbilityActionTargetPosition {
+        ParsedAction::UnitBuildingAbilityTargetPosition(UnitBuildingAbilityActionTargetPosition {
             command: ability,
             item,
             target_position,
@@ -445,7 +454,9 @@ fn unit_building_ability_target_position(input: &[u8]) -> IResult<&[u8], Action>
     ))
 }
 
-fn unit_building_ability_target_position_target_object_id(input: &[u8]) -> IResult<&[u8], Action> {
+fn unit_building_ability_target_position_target_object_id(
+    input: &[u8],
+) -> IResult<&[u8], ParsedAction> {
     let (rest, ability) = parse_ability(input)?;
     let (rest, item) = game_component(rest)?;
     let (rest, _) = le_u32(rest)?; // TODO
@@ -455,7 +466,7 @@ fn unit_building_ability_target_position_target_object_id(input: &[u8]) -> IResu
     let (rest, object_2) = le_u32(rest)?;
     Ok((
         rest,
-        Action::UnitBuildingAbilityTargetPositionTargetObjectId(
+        ParsedAction::UnitBuildingAbilityTargetPositionTargetObjectId(
             UnitBuildingAbilityActionTargetPositionTargetObjectId {
                 command: ability,
                 item,
@@ -467,7 +478,7 @@ fn unit_building_ability_target_position_target_object_id(input: &[u8]) -> IResu
     ))
 }
 
-fn give_item(input: &[u8]) -> IResult<&[u8], Action> {
+fn give_item(input: &[u8]) -> IResult<&[u8], ParsedAction> {
     let (rest, ability) = parse_ability(input)?;
     let (rest, item) = game_component(rest)?;
     let (rest, _) = le_u32(rest)?; // TODO
@@ -479,7 +490,7 @@ fn give_item(input: &[u8]) -> IResult<&[u8], Action> {
     let (rest, item_object_2) = le_u32(rest)?;
     Ok((
         rest,
-        Action::GiveItem(GiveItemToUnitAction {
+        ParsedAction::GiveItem(GiveItemToUnitAction {
             command: ability,
             item,
             target_position,
@@ -491,7 +502,7 @@ fn give_item(input: &[u8]) -> IResult<&[u8], Action> {
     ))
 }
 
-fn unit_building_ability_two_target_positions(input: &[u8]) -> IResult<&[u8], Action> {
+fn unit_building_ability_two_target_positions(input: &[u8]) -> IResult<&[u8], ParsedAction> {
     let (rest, ability) = parse_ability(input)?;
     let (rest, item_1) = game_component(rest)?;
     let (rest, _) = le_u32(rest)?; // TODO
@@ -502,7 +513,7 @@ fn unit_building_ability_two_target_positions(input: &[u8]) -> IResult<&[u8], Ac
     let (rest, target_position_2) = parse_position(rest)?;
     Ok((
         rest,
-        Action::UnitBuildingAbilityTwoTargetPositions(
+        ParsedAction::UnitBuildingAbilityTwoTargetPositions(
             UnitBuildingAbilityActionTwoTargetPositions {
                 command: ability,
                 item_1,
@@ -520,45 +531,45 @@ fn unit_selection(input: &[u8]) -> IResult<&[u8], UnitSelection> {
     Ok((rest, UnitSelection { object_1, object_2 }))
 }
 
-fn change_selection(input: &[u8]) -> IResult<&[u8], Action> {
+fn change_selection(input: &[u8]) -> IResult<&[u8], ParsedAction> {
     let (rest, select_mode) = parse_selection_mode(input)?;
     let (rest, nb_selection) = le_u16(rest)?;
     let (rest, selected_units) = count(unit_selection, nb_selection as usize)(rest)?;
     Ok((
         rest,
-        Action::ChangeSelection(ChangeSelectionAction {
+        ParsedAction::ChangeSelection(ChangeSelectionAction {
             select_mode,
             selected_units,
         }),
     ))
 }
 
-fn assign_group_hotkey(input: &[u8]) -> IResult<&[u8], Action> {
+fn assign_group_hotkey(input: &[u8]) -> IResult<&[u8], ParsedAction> {
     let (rest, hotkey) = le_u8(input)?;
     let (rest, nb_selection) = le_u16(rest)?;
     let (rest, selected_units) = count(unit_selection, nb_selection as usize)(rest)?;
     Ok((
         rest,
-        Action::AssignGroupHotkey(AssignGroupHotkeyAction {
+        ParsedAction::AssignGroupHotkey(AssignGroupHotkeyAction {
             hotkey,
             selected_units,
         }),
     ))
 }
 
-fn select_group_hotkey(input: &[u8]) -> IResult<&[u8], Action> {
+fn select_group_hotkey(input: &[u8]) -> IResult<&[u8], ParsedAction> {
     let (rest, hotkey) = le_u8(input)?;
     let (rest, _) = le_u8(rest)?; // TODO?
-    Ok((rest, Action::SelectGroupHotkey(hotkey)))
+    Ok((rest, ParsedAction::SelectGroupHotkey(hotkey)))
 }
 
-fn select_subgroup(input: &[u8]) -> IResult<&[u8], Action> {
+fn select_subgroup(input: &[u8]) -> IResult<&[u8], ParsedAction> {
     let (rest, item) = game_component(input)?;
     let (rest, object_1) = le_u32(rest)?;
     let (rest, object_2) = le_u32(rest)?;
     Ok((
         rest,
-        Action::SelectSubgroup(SelectSubgroupAction {
+        ParsedAction::SelectSubgroup(SelectSubgroupAction {
             item,
             object_1,
             object_2,
@@ -566,53 +577,53 @@ fn select_subgroup(input: &[u8]) -> IResult<&[u8], Action> {
     ))
 }
 
-fn select_ground_item(input: &[u8]) -> IResult<&[u8], Action> {
+fn select_ground_item(input: &[u8]) -> IResult<&[u8], ParsedAction> {
     let (rest, _) = take(1usize)(input)?;
     let (rest, object_1) = game_component(rest)?;
     let (rest, object_2) = game_component(rest)?;
     Ok((
         rest,
-        Action::SelectGroundItem(SelectGroundItemAction { object_1, object_2 }),
+        ParsedAction::SelectGroundItem(SelectGroundItemAction { object_1, object_2 }),
     ))
 }
 
-fn cancel_hero_revival(input: &[u8]) -> IResult<&[u8], Action> {
+fn cancel_hero_revival(input: &[u8]) -> IResult<&[u8], ParsedAction> {
     let (rest, unit_1) = game_component(input)?;
     let (rest, unit_2) = game_component(rest)?;
     Ok((
         rest,
-        Action::CancelHeroRevival(CancelHeroRevivalAction { unit_1, unit_2 }),
+        ParsedAction::CancelHeroRevival(CancelHeroRevivalAction { unit_1, unit_2 }),
     ))
 }
 
-fn remove_unit_from_building_queue(input: &[u8]) -> IResult<&[u8], Action> {
+fn remove_unit_from_building_queue(input: &[u8]) -> IResult<&[u8], ParsedAction> {
     let (rest, slot) = le_u8(input)?;
     let (rest, unit) = game_component(rest)?;
     Ok((
         rest,
-        Action::RemoveUnitFromBuildingQueue(RemoveUnitFromBuildingQueueAction { slot, unit }),
+        ParsedAction::RemoveUnitFromBuildingQueue(RemoveUnitFromBuildingQueueAction { slot, unit }),
     ))
 }
 
-fn change_ally_options(input: &[u8]) -> IResult<&[u8], Action> {
+fn change_ally_options(input: &[u8]) -> IResult<&[u8], ParsedAction> {
     let (rest, player_slot) = le_u8(input)?;
     let (rest, option) = take(4usize)(rest)?;
     Ok((
         rest,
-        Action::ChangeAllyOptions(ChangeAllyOptionsAction {
+        ParsedAction::ChangeAllyOptions(ChangeAllyOptionsAction {
             player_slot,
             option: option[0..4].try_into().unwrap(),
         }),
     ))
 }
 
-fn transfer_resources(input: &[u8]) -> IResult<&[u8], Action> {
+fn transfer_resources(input: &[u8]) -> IResult<&[u8], ParsedAction> {
     let (rest, player_slot) = le_u8(input)?;
     let (rest, gold_amount) = take(4usize)(rest)?;
     let (rest, lumber_amount) = take(4usize)(rest)?;
     Ok((
         rest,
-        Action::TransferResources(TransferResourcesAction {
+        ParsedAction::TransferResources(TransferResourcesAction {
             player_slot,
             gold_amount: gold_amount[0..4].try_into().unwrap(),
             lumber_amount: lumber_amount[0..4].try_into().unwrap(),
@@ -620,37 +631,37 @@ fn transfer_resources(input: &[u8]) -> IResult<&[u8], Action> {
     ))
 }
 
-fn map_trigger_chat(input: &[u8]) -> IResult<&[u8], Action> {
+fn map_trigger_chat(input: &[u8]) -> IResult<&[u8], ParsedAction> {
     let (rest, _) = take(4usize)(input)?;
     let (rest, _) = take(4usize)(rest)?;
     let (rest, msg) = zero_terminated_string(rest)?;
-    Ok((rest, Action::MapTriggerChat(msg)))
+    Ok((rest, ParsedAction::MapTriggerChat(msg)))
 }
 
-fn scenario_trigger(input: &[u8]) -> IResult<&[u8], Action> {
+fn scenario_trigger(input: &[u8]) -> IResult<&[u8], ParsedAction> {
     let (rest, _) = take(12usize)(input)?;
-    Ok((rest, Action::ScenarioTrigger))
+    Ok((rest, ParsedAction::ScenarioTrigger))
 }
 
-fn minimap_signal(input: &[u8]) -> IResult<&[u8], Action> {
+fn minimap_signal(input: &[u8]) -> IResult<&[u8], ParsedAction> {
     let (rest, location) = parse_position(input)?;
     let (rest, _) = take(4usize)(rest)?;
-    Ok((rest, Action::MinimapSignal(location)))
+    Ok((rest, ParsedAction::MinimapSignal(location)))
 }
 
-fn continue_game(input: &[u8]) -> IResult<&[u8], Action> {
+fn continue_game(input: &[u8]) -> IResult<&[u8], ParsedAction> {
     let (rest, _) = take(16usize)(input)?;
-    Ok((rest, Action::ContinueGame))
+    Ok((rest, ParsedAction::ContinueGame))
 }
 
-fn w3mmd(input: &[u8]) -> IResult<&[u8], Action> {
+fn w3mmd(input: &[u8]) -> IResult<&[u8], ParsedAction> {
     let (rest, filename) = zero_terminated_string(input)?;
     let (rest, mission_key) = zero_terminated_string(rest)?;
     let (rest, key) = zero_terminated_string(rest)?;
     let (rest, value) = le_u32(rest)?;
     Ok((
         rest,
-        Action::W3MMD(W3MMDAction {
+        ParsedAction::W3MMD(W3MMDAction {
             filename,
             mission_key,
             key,
@@ -659,39 +670,39 @@ fn w3mmd(input: &[u8]) -> IResult<&[u8], Action> {
     ))
 }
 
-fn data_action(input: &[u8]) -> IResult<&[u8], Action> {
+fn data_action(input: &[u8]) -> IResult<&[u8], ParsedAction> {
     let (rest, data) = take(16usize)(input)?;
-    Ok((rest, Action::Data(data[0..16].try_into().unwrap())))
+    Ok((rest, ParsedAction::Data(data[0..16].try_into().unwrap())))
 }
 
-fn unknown(input: &[u8]) -> IResult<&[u8], Action> {
-    Ok((input, Action::Unknown))
+fn unknown(input: &[u8]) -> IResult<&[u8], ParsedAction> {
+    Ok((input, ParsedAction::Unknown))
 }
 
-fn unknown_1(input: &[u8]) -> IResult<&[u8], Action> {
+fn unknown_1(input: &[u8]) -> IResult<&[u8], ParsedAction> {
     unknown_bytes(input, 1)
 }
 
-fn unknown_4(input: &[u8]) -> IResult<&[u8], Action> {
+fn unknown_4(input: &[u8]) -> IResult<&[u8], ParsedAction> {
     unknown_bytes(input, 4)
 }
 
-fn unknown_5(input: &[u8]) -> IResult<&[u8], Action> {
+fn unknown_5(input: &[u8]) -> IResult<&[u8], ParsedAction> {
     unknown_bytes(input, 5)
 }
 
-fn unknown_8(input: &[u8]) -> IResult<&[u8], Action> {
+fn unknown_8(input: &[u8]) -> IResult<&[u8], ParsedAction> {
     unknown_bytes(input, 8)
 }
 
-fn unknown_9(input: &[u8]) -> IResult<&[u8], Action> {
+fn unknown_9(input: &[u8]) -> IResult<&[u8], ParsedAction> {
     unknown_bytes(input, 9)
 }
 
-fn unknown_13(input: &[u8]) -> IResult<&[u8], Action> {
+fn unknown_13(input: &[u8]) -> IResult<&[u8], ParsedAction> {
     unknown_bytes(input, 13)
 }
 
-fn unknown_20(input: &[u8]) -> IResult<&[u8], Action> {
+fn unknown_20(input: &[u8]) -> IResult<&[u8], ParsedAction> {
     unknown_bytes(input, 13)
 }

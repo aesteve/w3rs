@@ -1,10 +1,12 @@
 use crate::blocks::gameblock::GameBlock;
 use crate::utils::zero_terminated_string;
 use nom::bytes::complete::take;
+use nom::lib::std::fmt::Formatter;
 use nom::{
     number::complete::{le_u16, le_u8},
     IResult,
 };
+use std::fmt::Display;
 
 #[derive(Debug)]
 pub(crate) struct PlayerChatMsgMetadata {
@@ -13,10 +15,10 @@ pub(crate) struct PlayerChatMsgMetadata {
 }
 
 #[derive(Debug)]
-pub struct PlayerChatMsgBlock {
-    pub player_id: u8,
-    pub text: String,
-    kind: ChatMsgBlock,
+pub(crate) struct PlayerChatMsgBlock {
+    pub(crate) player_id: u8,
+    pub(crate) text: String,
+    pub(crate) kind: ChatMsgBlock,
 }
 
 #[derive(Debug)]
@@ -26,8 +28,8 @@ pub(crate) enum ChatMsgBlock {
     Unknown,
 }
 
-#[derive(Debug)]
-pub(crate) enum Addressee {
+#[derive(Debug, PartialEq, Clone)]
+pub enum Addressee {
     All,
     Allies,
     Observers,
@@ -81,4 +83,10 @@ pub(crate) fn player_chat_msg(input: &[u8]) -> IResult<&[u8], GameBlock> {
         text,
     });
     Ok((rest, block))
+}
+
+impl Display for Addressee {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "[{:?}]", self)
+    }
 }

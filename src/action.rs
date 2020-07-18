@@ -1,42 +1,127 @@
-#[derive(Debug, Clone, PartialEq)]
-pub enum UnitAction {
-    RightClick,
-    Stop,
-    Cancel,
-    Rally,
-    Attack,
-    AttackGround,
-    Move,
-    Patrol,
-    Hold,
-    SwapItem(u8),
-    UseItem(u8),
+use crate::blocks::action::UnitCommand;
+use crate::blocks::command::{GameComponent, ParsedAction, Position, SelectedComponent};
+use crate::building::{Building, Upgrade};
+use crate::spell::{HeroSpell, Spell};
+use crate::unit::{Hero, Unit};
+use nom::lib::std::collections::HashMap;
+use nom::lib::std::fmt::Formatter;
+use std::fmt::Display;
+
+pub(crate) fn from_parsed_action(
+    selection: &[SelectedComponent],
+    action: &ParsedAction,
+    components: &HashMap<u32, GameComponent>,
+) -> Option<Action> {
+    match action {
+        ParsedAction::UnitBuildingAbilityNoParams(ability) => {
+            if building_selected(selection) {
+                match &ability.item {
+                    GameComponent::Unit(unit) => Some(Action::TrainUnit(unit.clone())),
+                    GameComponent::Hero(hero) => Some(Action::TrainHero(hero.clone())),
+                    GameComponent::Upgrade(upgrade) => Some(Action::TrainUpgrade(upgrade.clone())),
+                    _ => None,
+                }
+            } else {
+                None
+            }
+        }
+        ParsedAction::UnitBuildingAbilityTargetPositionTargetObjectId(ability) => {
+            if unit_or_hero_selected(selection) {
+                match &ability.item {
+                    GameComponent::UsedSpell(spell) => {
+                        let target = components
+                            .get(&ability.object_1)
+                            .or_else(|| components.get(&ability.object_2))
+                            .map(GameComponent::clone);
+                        Some(Action::Spell {
+                            spell: spell.clone(),
+                            target,
+                            position: ability.target_position.clone(),
+                        })
+                    }
+                    _ => None, //TODO
+                }
+            } else {
+                None
+            }
+        }
+        _ => None, // TODO
+    }
 }
 
-impl UnitAction {
-    pub(crate) fn from_bin(binary: [u8; 2]) -> Option<UnitAction> {
-        match binary {
-            [3, 0] => Some(UnitAction::RightClick),
-            [4, 0] => Some(UnitAction::Stop),
-            [8, 0] => Some(UnitAction::Cancel),
-            [15, 0] => Some(UnitAction::Attack),
-            [16, 0] => Some(UnitAction::AttackGround),
-            [18, 0] => Some(UnitAction::Move),
-            [22, 0] => Some(UnitAction::Patrol),
-            [25, 0] => Some(UnitAction::Hold),
-            [34, 0] => Some(UnitAction::SwapItem(7)),
-            [35, 0] => Some(UnitAction::SwapItem(8)),
-            [36, 0] => Some(UnitAction::SwapItem(4)),
-            [37, 0] => Some(UnitAction::SwapItem(5)),
-            [38, 0] => Some(UnitAction::SwapItem(1)),
-            [39, 0] => Some(UnitAction::SwapItem(2)),
-            [40, 0] => Some(UnitAction::UseItem(7)),
-            [41, 0] => Some(UnitAction::UseItem(8)),
-            [42, 0] => Some(UnitAction::UseItem(4)),
-            [43, 0] => Some(UnitAction::UseItem(5)),
-            [44, 0] => Some(UnitAction::UseItem(1)),
-            [45, 0] => Some(UnitAction::UseItem(2)),
-            _ => None,
+fn building_selected(selection: &[SelectedComponent]) -> bool {
+    selection.iter().any(|s| match &s.kind {
+        None => false,
+        Some(gc) => match gc {
+            GameComponent::Building(_) => true,
+            _ => false,
+        },
+    })
+}
+
+fn unit_or_hero_selected(selection: &[SelectedComponent]) -> bool {
+    selection.iter().any(|s| match &s.kind {
+        None => false,
+        Some(gc) => match gc {
+            GameComponent::Unit(_) | GameComponent::Hero(_) => true,
+            _ => false,
+        },
+    })
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum Action {
+    Build {
+        building: Building,
+        position: Position,
+    },
+    TrainHero(Hero),
+    TrainUnit(Unit),
+    TrainUpgrade(Upgrade),
+    TrainSpell(HeroSpell),
+    SetRallyPoint {
+        building: Building,
+        position: Position,
+    },
+    Spell {
+        spell: Spell,
+        target: Option<GameComponent>,
+        position: Position,
+    },
+    Command {
+        kind: UnitCommand,
+        at: Option<Position>,
+    },
+    Leave,
+}
+
+impl Display for Action {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Action::Build { building, position } => {
+                write!(f, "built {:?} at {}", building, position)
+            }
+            Action::Spell {
+                spell,
+                target,
+                position,
+            } => {
+                write!(f, "used {:?}", spell)?;
+                if let Some(t) = target {
+                    write!(f, " on {:?}", t)
+                } else {
+                    write!(f, " at {:?}", position)
+                }
+            }
+            Action::Leave => write!(f, "left"),
+            Action::TrainUpgrade(upgrade) => write!(f, "trained {:?}", upgrade),
+            Action::TrainHero(hero) => write!(f, "trained {:?}", hero),
+            Action::TrainUnit(unit) => write!(f, "trained {:?}", unit),
+            Action::TrainSpell(spell) => writeln!(f, "learned {:?}", spell),
+            Action::SetRallyPoint { building, position } => {
+                writeln!(f, "set rally point for {:?} at {}", building, position)
+            }
+            _ => Ok(()), // TODO
         }
     }
 }
