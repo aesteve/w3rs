@@ -354,7 +354,7 @@ mod tests {
 
     #[test]
     fn parse_replay_events() {
-        let game = Game::parse(Path::new("./replays-ignore/Replay_2020_07_17_2128.w3g"));
+        let game = Game::parse(Path::new("./replays-ignore/vs_HAPPY_1_TS.w3g"));
         println!("Anayzed game:");
         println!("{}", game);
         let events = game.events();

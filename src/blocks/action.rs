@@ -12,6 +12,7 @@ pub enum UnitCommand {
     DropItem,
     SwapItem(u8),
     UseItem(u8),
+    ChangeShopBuyer,
 }
 
 impl UnitCommand {
@@ -39,6 +40,8 @@ impl UnitCommand {
             [43, 0] => Some(UnitCommand::UseItem(5)),
             [44, 0] => Some(UnitCommand::UseItem(1)),
             [45, 0] => Some(UnitCommand::UseItem(2)),
+            [86, 2] => Some(UnitCommand::ChangeShopBuyer),
+
             _ => None,
         }
     }

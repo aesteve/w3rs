@@ -25,6 +25,9 @@ pub enum HeroSpell {
     FanOfKnives,
     Blink,
     ShadowStrike,
+    Vengeance,
+    EnableAutoSpiritOfVengeance,
+    DisableAutoSpiritOfVengeance,
     SpiritOfVengeance,
     // OR
     // Obla
@@ -68,6 +71,8 @@ pub enum HeroSpell {
     Impale,
     SpikedCarapace,
     CarrionBeetles,
+    EnableAutoCarrionBeetles,
+    DisableAutoCarrionBeetles,
     LocustSwarm,
     // HU
     // Hamg
@@ -96,10 +101,14 @@ pub enum HeroSpell {
     ForkedLightning,
     FrostArrows,
     ManaShield,
+    EnableManaShield,
+    DisableManaShield,
     Tornado,
     // Nbrn
     Silence,
     BlackArrow,
+    EnableAutoBlackArrow,
+    DisableAutoBlackArrow,
     LifeDrain,
     Charm,
     // Npbm
@@ -109,7 +118,7 @@ pub enum HeroSpell {
     StormEarthAndFire,
     // Nbst
     SummonBear,
-    SummonQuilbeast,
+    SummonQuillbeast,
     SummonHawk,
     Stampede,
     // Nplh
@@ -122,10 +131,13 @@ pub enum HeroSpell {
     ClusterRockets,
     EngineeringUpgrade,
     RoboGoblin,
+    TinkerForm,
     // Nfir
     SoulBurn,
     SummonLavaSpawn,
     Incinerate,
+    EnableAutoIncinerate,
+    DisableAutoIncinerate,
     Volcano,
     // Nalc
     HealingSpray,
@@ -245,7 +257,7 @@ impl HeroSpell {
             "ANdo" => Some(HeroSpell::Doom),
             // Nbst
             "ANsg" => Some(HeroSpell::SummonBear),
-            "ANsq" => Some(HeroSpell::SummonQuilbeast),
+            "ANsq" => Some(HeroSpell::SummonQuillbeast),
             "ANsw" => Some(HeroSpell::SummonHawk),
             "ANst" => Some(HeroSpell::Stampede),
             // Ntin
@@ -321,6 +333,13 @@ impl HeroSpell {
             [213, 0] => Some(HeroSpell::Scout),
             [215, 0] => Some(HeroSpell::Starfall),
             [216, 0] => Some(HeroSpell::Tranquility),
+            [42, 2] => Some(HeroSpell::EnableAutoSpiritOfVengeance),
+            [43, 2] => Some(HeroSpell::DisableAutoSpiritOfVengeance),
+            [44, 2] => Some(HeroSpell::SpiritOfVengeance),
+            [45, 2] => Some(HeroSpell::Blink),
+            [46, 2] => Some(HeroSpell::FanOfKnives),
+            [47, 2] => Some(HeroSpell::ShadowStrike),
+            [48, 2] => Some(HeroSpell::Vengeance),
             // UD
             [249, 0] => Some(HeroSpell::AnimateDead),
             [250, 0] => Some(HeroSpell::LocustSwarm),
@@ -334,10 +353,45 @@ impl HeroSpell {
             [3, 1] => Some(HeroSpell::Sleep),
             [234, 1] => Some(HeroSpell::EnableAutoFrostArmor),
             [235, 1] => Some(HeroSpell::DisableAutoFrostArmor),
-
+            [72, 2] => Some(HeroSpell::EnableAutoCarrionBeetles),
+            [73, 2] => Some(HeroSpell::DisableAutoCarrionBeetles),
+            [74, 2] => Some(HeroSpell::CarrionBeetles),
+            [75, 2] => Some(HeroSpell::Impale),
+            [76, 2] => Some(HeroSpell::LocustSwarm),
             // Neutral
             [14, 1] => Some(HeroSpell::RainOfFire),
-
+            [97, 2] => Some(HeroSpell::BlackArrow),
+            [98, 2] => Some(HeroSpell::EnableAutoBlackArrow),
+            [99, 2] => Some(HeroSpell::DisableAutoBlackArrow),
+            [100, 2] => Some(HeroSpell::BreathOfFire),
+            [101, 2] => Some(HeroSpell::Charm),
+            [103, 2] => Some(HeroSpell::Doom),
+            [105, 2] => Some(HeroSpell::DrunkenHaze),
+            [106, 2] => Some(HeroSpell::StormEarthAndFire),
+            [107, 2] => Some(HeroSpell::ForkedLightning),
+            [108, 2] => Some(HeroSpell::HowlOfTerror),
+            [109, 2] => Some(HeroSpell::EnableManaShield),
+            [110, 2] => Some(HeroSpell::DisableManaShield),
+            [112, 2] => Some(HeroSpell::Silence),
+            [113, 2] => Some(HeroSpell::Stampede),
+            [114, 2] => Some(HeroSpell::SummonBear),
+            [115, 2] => Some(HeroSpell::SummonQuillbeast),
+            [116, 2] => Some(HeroSpell::SummonHawk),
+            [117, 2] => Some(HeroSpell::Tornado),
+            [172, 2] => Some(HeroSpell::ClusterRockets),
+            [176, 2] => Some(HeroSpell::RoboGoblin),
+            [177, 2] => Some(HeroSpell::TinkerForm),
+            [178, 2] => Some(HeroSpell::PocketFactory),
+            [182, 2] => Some(HeroSpell::AcidBomb),
+            [183, 2] => Some(HeroSpell::ChemicalRage),
+            [184, 2] => Some(HeroSpell::HealingSpray),
+            [185, 2] => Some(HeroSpell::Transmute),
+            [187, 2] => Some(HeroSpell::SummonLavaSpawn),
+            [188, 2] => Some(HeroSpell::SoulBurn),
+            [189, 2] => Some(HeroSpell::Volcano),
+            [190, 2] => Some(HeroSpell::Incinerate),
+            [191, 2] => Some(HeroSpell::EnableAutoIncinerate),
+            [192, 2] => Some(HeroSpell::DisableAutoIncinerate),
             _ => None,
         }
     }
@@ -467,6 +521,26 @@ pub enum UnitSpell {
     EnableAutoPhaseShift,
     DisableAutoPhaseShift,
     Taunt,
+    AbsorbMana,
+    MorphToDestroyer,
+    Burrow,
+    Unburrow,
+    DevourMagic,
+    OrbOfAnnihilation,
+    EnableAutoOrbOfAnnihilation,
+    DisableAutoOrbOfAnnihilation,
+    EssenceOfBlight,
+    EnableAutoEssenceOfBlight,
+    DisableAutoEssenceOfBlight,
+    SpiritTouch,
+    EnableAutoSpiritTouch,
+    DisableAutoSpiritTouch,
+
+    Frenzy,
+    EnableAutoFrenzy,
+    DisableAutoFrenzy,
+
+    SummonPrawn,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -614,8 +688,24 @@ impl UnitSpell {
             [35, 2] => Some(UnitSpell::EnableAutoPhaseShift),
             [36, 2] => Some(UnitSpell::DisableAutoPhaseShift),
             [40, 2] => Some(UnitSpell::Taunt),
-
-            // TODO: stopped here
+            [49, 2] => Some(UnitSpell::AbsorbMana),
+            [51, 2] => Some(UnitSpell::MorphToDestroyer),
+            [53, 2] => Some(UnitSpell::Burrow),
+            [54, 2] => Some(UnitSpell::Unburrow),
+            [56, 2] => Some(UnitSpell::DevourMagic),
+            [59, 2] => Some(UnitSpell::OrbOfAnnihilation),
+            [60, 2] => Some(UnitSpell::EnableAutoOrbOfAnnihilation),
+            [61, 2] => Some(UnitSpell::DisableAutoOrbOfAnnihilation),
+            [65, 2] => Some(UnitSpell::EssenceOfBlight),
+            [66, 2] => Some(UnitSpell::EnableAutoEssenceOfBlight),
+            [67, 2] => Some(UnitSpell::DisableAutoEssenceOfBlight),
+            [68, 2] => Some(UnitSpell::SpiritTouch),
+            [69, 2] => Some(UnitSpell::EnableAutoSpiritTouch),
+            [70, 2] => Some(UnitSpell::DisableAutoSpiritTouch),
+            [81, 2] => Some(UnitSpell::Frenzy),
+            [82, 2] => Some(UnitSpell::EnableAutoFrenzy),
+            [83, 2] => Some(UnitSpell::DisableAutoFrenzy),
+            [112, 2] => Some(UnitSpell::SummonPrawn),
             _ => None,
         }
     }
