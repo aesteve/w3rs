@@ -192,9 +192,9 @@ pub struct UnitBuildingAbilityActionNoParams {
 
 #[derive(Debug, PartialEq)]
 pub struct UnitBuildingAbilityActionTargetPosition {
-    command: Command,
-    item: GameComponent,
-    target_position: Position,
+    pub(crate) command: Command,
+    pub(crate) item: GameComponent,
+    pub(crate) target_position: Position,
 }
 
 #[derive(Debug, PartialEq)]

@@ -1,4 +1,4 @@
-use crate::action::from_parsed_action;
+use crate::action::{from_parsed_action, Action};
 use crate::blocks::chat::ChatMsgBlock;
 use crate::blocks::command::{GameComponent, SelectedComponent};
 use crate::blocks::compressedblock::{compressed_data_blocks, deflate_game};
@@ -219,6 +219,7 @@ impl Game {
         let mut events: Vec<GameEvent> = Vec::new();
         let mut inventories: HashMap<Hero, Inventory> = HashMap::new();
         let mut player_hotkey_groups: HashMap<u8, Vec<SelectedComponent>> = HashMap::new();
+        let mut shop_buyers: HashMap<u8, Hero> = HashMap::new();
         for block in &self.blocks {
             match block {
                 GameBlock::TimeSlot(ts_block) => {
@@ -252,15 +253,18 @@ impl Game {
                                     player_selection.insert(player, enhanced_selection);
                                 }
                             }
-                            //
                             if let Some(selected_units) = player_selection.get(&player) {
                                 let parsed = from_parsed_action(
                                     selected_units,
                                     action,
                                     &game_components,
                                     &mut inventories,
+                                    shop_buyers.get(&player),
                                 );
                                 if let Some(action) = parsed {
+                                    if let Action::ChangeShopBuyer(hero) = &action {
+                                        shop_buyers.insert(player, hero.clone());
+                                    }
                                     events.push(GameEvent {
                                         time,
                                         player_id: player,

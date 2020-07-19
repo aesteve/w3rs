@@ -14,6 +14,7 @@ pub(crate) fn from_parsed_action(
     action: &ParsedAction,
     components: &HashMap<u32, GameComponent>,
     inventories: &mut HashMap<Hero, Inventory>,
+    shop_buyer: Option<&Hero>,
 ) -> Option<Action> {
     match action {
         ParsedAction::UnitBuildingAbilityNoParams(ability) => {
@@ -25,7 +26,27 @@ pub(crate) fn from_parsed_action(
                         Some(Action::TrainHero(hero.clone()))
                     }
                     GameComponent::Upgrade(upgrade) => Some(Action::TrainUpgrade(upgrade.clone())),
-                    _ => None,
+                    GameComponent::Item(item) => {
+                        if let Some(hero) = shop_buyer {
+                            Some(Action::BuyItem {
+                                item: item.clone(),
+                                buyer: hero.clone(),
+                            })
+                        } else {
+                            println!(
+                                "WARN :Could not find the hero who bought the item. {:?}",
+                                ability
+                            );
+                            None
+                        }
+                    }
+                    GameComponent::Building(building) => {
+                        Some(Action::UpgradeBuilding(building.clone()))
+                    }
+                    _ => {
+                        println!("TODO(no params && building selected) {:?}", ability);
+                        None
+                    }
                 }
             } else if unit_or_hero_selected(selection) {
                 match &ability.item {
@@ -45,7 +66,6 @@ pub(crate) fn from_parsed_action(
                             None
                         }
                     },
-                    GameComponent::Item(item) => Some(Action::BuyItem(item.clone())),
                     _ => {
                         println!(
                             "TODO!(noparams): ability={:?}, selection={:?}",
@@ -59,68 +79,85 @@ pub(crate) fn from_parsed_action(
             }
         }
         ParsedAction::UnitBuildingAbilityTargetPositionTargetObjectId(ability) => {
-            if unit_or_hero_selected(selection) {
-                match &ability.item {
-                    GameComponent::UsedSpell(spell) => {
-                        let target = components
-                            .get(&ability.object_1)
-                            .or_else(|| components.get(&ability.object_2))
-                            .map(GameComponent::clone);
-                        Some(Action::UsedSpell {
-                            spell: spell.clone(),
-                            target,
-                            position: Some(ability.target_position.clone()),
-                        })
-                    }
-                    GameComponent::Action(cmd) => match cmd {
-                        UnitCommand::RightClick => match first_unit_from_selection(selection) {
-                            Some(GameComponent::Building(b)) => Some(Action::SetRallyPoint {
-                                building: b,
-                                position: ability.target_position.clone(),
-                            }),
-                            Some(GameComponent::Unit(_)) | Some(GameComponent::Hero(_)) => {
-                                match components
-                                    .get(&ability.object_1)
-                                    .or_else(|| components.get(&ability.object_2))
-                                {
-                                    Some(target) => Some(Action::RightClick {
-                                        at: ability.target_position.clone(),
-                                        target: target.clone(),
-                                    }),
-                                    None => Some(Action::Move(ability.target_position.clone())),
-                                }
-                            }
-                            _ => {
-                                println!(
-                                    "TODO(targetpositionobjectid)1: ability: {:?}, selection: {:?}",
-                                    ability, selection
-                                );
-                                None
-                            }
-                        },
-                        UnitCommand::Move => Some(Action::Move(ability.target_position.clone())),
-                        UnitCommand::Attack => Some(Action::Attack {
-                            at: Some(ability.target_position.clone()),
-                            target: components
-                                .get(&ability.object_1)
-                                .or_else(|| components.get(&ability.object_2))
-                                .map(GameComponent::clone),
-                        }),
-                        UnitCommand::UseItem(slot) => {
-                            use_item_from_inventory(*slot, selection, inventories, ability)
+            match &ability.item {
+                GameComponent::UsedSpell(spell) => {
+                    let target = components
+                        .get(&ability.object_1)
+                        .or_else(|| components.get(&ability.object_2))
+                        .map(GameComponent::clone);
+                    Some(Action::UsedSpell {
+                        spell: spell.clone(),
+                        target,
+                        position: Some(ability.target_position.clone()),
+                    })
+                }
+                GameComponent::Action(cmd) => match cmd {
+                    UnitCommand::RightClick => match first_unit_from_selection(selection) {
+                        Some(GameComponent::Building(_)) => {
+                            Some(Action::SetRallyPoint(ability.target_position.clone()))
                         }
                         _ => {
+                            match components
+                                .get(&ability.object_1)
+                                .or_else(|| components.get(&ability.object_2))
+                            {
+                                Some(target) => Some(Action::RightClick {
+                                    at: ability.target_position.clone(),
+                                    target: target.clone(),
+                                }),
+                                None => Some(Action::Move(ability.target_position.clone())),
+                            }
+                        }
+                    },
+                    UnitCommand::Move => Some(Action::Move(ability.target_position.clone())),
+                    UnitCommand::Attack => Some(Action::Attack {
+                        at: Some(ability.target_position.clone()),
+                        target: components
+                            .get(&ability.object_1)
+                            .or_else(|| components.get(&ability.object_2))
+                            .map(GameComponent::clone),
+                    }),
+                    UnitCommand::UseItem(slot) => {
+                        use_item_from_inventory(*slot, selection, inventories, ability)
+                    }
+                    UnitCommand::SwapItem(slot) => {
+                        let item1 = components.get(&ability.object_1);
+                        let item2 = components.get(&ability.object_2);
+                        println!(
+                            "TODO(swap) Swapping item with slot {}.  ability: {:?} | {:?} | {:?}",
+                            slot, ability, item1, item2
+                        );
+                        None
+                    }
+                    UnitCommand::ChangeShopBuyer => {
+                        if let Some(GameComponent::Hero(hero)) = components
+                            .get(&ability.object_1)
+                            .or_else(|| components.get(&ability.object_2))
+                        {
+                            Some(Action::ChangeShopBuyer(hero.clone()))
+                        } else {
                             println!(
-                                "TODO(targetpositionobjectid)2 ability: {:?}, selection: {:?}",
-                                ability, selection
+                                "WARN: Could not find hero targeted by shop to buy items from {:?}",
+                                ability
                             );
                             None
                         }
-                    },
-                    _ => None, //TODO
+                    }
+                    _ => {
+                        println!(
+                            "TODO(targetpositionobjectid)2 ability: {:?}, selection: {:?}",
+                            ability, selection
+                        );
+                        None
+                    }
+                },
+                _ => {
+                    println!(
+                        "TODO(targetpositionobjectid)3 ability: {:?}, selection: {:?}",
+                        ability, selection
+                    );
+                    None
                 }
-            } else {
-                None
             }
         }
         ParsedAction::UnitBuildingAbilityTwoTargetPositions(ability) => match &ability.item_2 {
@@ -131,7 +168,46 @@ pub(crate) fn from_parsed_action(
             }),
             _ => None,
         },
-        _ => None, // TODO
+        ParsedAction::UnitBuildingAbilityTargetPosition(ability) => match &ability.item {
+            GameComponent::Building(building) => Some(Action::Build {
+                building: building.clone(),
+                position: ability.target_position.clone(),
+            }),
+            GameComponent::Item(item) => {
+                if let Some(GameComponent::Hero(hero)) = first_unit_from_selection(selection) {
+                    Some(Action::ConsumeItem {
+                        item: item.clone(),
+                        by: hero,
+                        at: Some(ability.target_position.clone()),
+                        on: None,
+                    })
+                } else {
+                    None
+                }
+            }
+            GameComponent::UsedSpell(spell) => Some(Action::UsedSpell {
+                spell: spell.clone(),
+                target: None,
+                position: Some(ability.target_position.clone()),
+            }),
+            _ => {
+                println!("TODO(UnitBuildingAbilityTargetPosition) {:?}", ability);
+                None
+            }
+        },
+        ParsedAction::ChangeSelection(_)
+        | ParsedAction::AssignGroupHotkey(_)
+        | ParsedAction::PreSubselection
+        | ParsedAction::SelectSubgroup(_)
+        | ParsedAction::EnterBuildingSubmenu
+        | ParsedAction::ChooseHeroSkillSubmenu
+        | ParsedAction::Data(_)
+        | ParsedAction::EscapedPressed
+        | ParsedAction::SelectGroupHotkey(_) => None,
+        _ => {
+            println!("Unhandled parsed action: {:?}", action);
+            None
+        } // TODO
     }
 }
 
@@ -157,7 +233,12 @@ fn use_item_from_inventory<T: Debug>(
             .get_mut(&hero)
             .and_then(|inventory| inventory.use_slot(slot));
         if let Some(item) = maybe_item {
-            Some(Action::ConsumeItem { item, by: hero })
+            Some(Action::ConsumeItem {
+                item,
+                by: hero,
+                at: None,
+                on: None,
+            })
         } else {
             println!("WARN: Could not find item in inventory for hero: {:?} in slot {:?}. This is a WIP, please report a bug", hero, slot);
             None
@@ -213,20 +294,24 @@ pub enum Action {
     TrainHero(Hero),
     TrainUnit(Unit),
     TrainUpgrade(Upgrade),
+    UpgradeBuilding(Building),
     TrainSpell(HeroSpell),
-    SetRallyPoint {
-        building: Building,
-        position: Position,
-    },
+    SetRallyPoint(Position),
     UsedSpell {
         spell: Spell,
         target: Option<GameComponent>,
         position: Option<Position>,
     },
-    BuyItem(Item),
+    ChangeShopBuyer(Hero),
+    BuyItem {
+        item: Item,
+        buyer: Hero,
+    },
     ConsumeItem {
         item: Item,
         by: Hero,
+        at: Option<Position>,
+        on: Option<GameComponent>,
     },
     GatherResources {
         units: Vec<Unit>,
@@ -266,11 +351,18 @@ impl Display for Action {
             Action::TrainHero(hero) => write!(f, "trained {:?}", hero),
             Action::TrainUnit(unit) => write!(f, "trained {:?}", unit),
             Action::TrainSpell(spell) => write!(f, "learned {:?}", spell),
-            Action::SetRallyPoint { building, position } => {
-                write!(f, "set rally point for {:?} at {}", building, position)
+            Action::SetRallyPoint(position) => write!(f, "set rally point at {}", position),
+            Action::BuyItem { item, buyer } => write!(f, "{:?} bought item {:?}", buyer, item),
+            Action::ConsumeItem { item, by, at, on } => {
+                write!(f, "consumed item {:?} with {:?}", item, by)?;
+                if let Some(target) = on {
+                    write!(f, " on {:?}", target)
+                } else if let Some(pos) = at {
+                    write!(f, " at {:?}", pos)
+                } else {
+                    Ok(())
+                }
             }
-            Action::BuyItem(item) => write!(f, "bought item {:?}", item),
-            Action::ConsumeItem { item, by } => write!(f, "consumed item {:?} with {:?}", item, by),
             Action::GatherResources {
                 units,
                 resource,
@@ -291,6 +383,7 @@ impl Display for Action {
                 }
                 Ok(())
             }
+            Action::UpgradeBuilding(building) => write!(f, " upgrade to {:?}", building),
             other => write!(f, "{:?}", other), // TODO
         }
     }

@@ -28,11 +28,17 @@ impl Inventory {
     }
 
     pub fn use_slot(&mut self, slot: u8) -> Option<Item> {
-        self.slots[Inventory::idx_from_usize(slot)].clone() // TODO: item "charges"
+        let item = self.slots[Inventory::idx_from_usize(slot)].clone();
+        self.slots[Inventory::idx_from_usize(slot)] = None; // TODO: item "charges"
+        item
     }
 
-    pub fn add_item(&mut self, slot: u8, item: Item) {
-        self.slots[Inventory::idx_from_usize(slot)] = Some(item)
+    pub fn add_item(&mut self, item: Item) {
+        if let Some(slot) = self.slots.iter().position(|slot| slot.is_none()) {
+            self.slots[slot] = Some(item)
+        } else {
+            println!("No more room in inventory for item {:?}", item);
+        }
     }
 
     pub fn drop(&mut self, slot: u8) {
@@ -147,7 +153,6 @@ pub enum Unit {
     DarkMinion2,
     DarkMinion3,
     PocketFactory,
-    // TODO:
     // Neutral
     SkeletalMarksman,
     BurningArcher,
@@ -240,6 +245,33 @@ pub enum Unit {
     NetherDragonHatchling,
     NetherDrake,
     NetherDragon,
+    RenegadeWizard,
+    RogueWizard,
+    Zombie,
+    DarkWizard,
+    // Still TODO
+    // Critters
+    Albatross,
+    Crab,
+    Deer,
+    Dog,
+    DuneWorm,
+    Chicken,
+    Rabbit,
+    Felboar,
+    Frog,
+    HermitCrab,
+    Pig,
+    Penguin,
+    Raccoon,
+    Rat,
+    Seal,
+    AmphSheep,
+    Sheep,
+    FlyingSheep,
+    WaterSheep,
+    Skink,
+    SnowyOwl,
 }
 
 #[derive(Debug, PartialEq, Clone, Eq, Hash)]
@@ -505,6 +537,33 @@ impl Unit {
             "nnht" => Some(Unit::NetherDragonHatchling),
             "nndk" => Some(Unit::NetherDrake),
             "nndr" => Some(Unit::NetherDragon),
+            "nwzg" => Some(Unit::RenegadeWizard),
+            "nwzr" => Some(Unit::RogueWizard),
+            "nzom" => Some(Unit::Zombie),
+            "nwzd" => Some(Unit::DarkWizard),
+            // Still TODO
+            // Critters
+            "nalb" => Some(Unit::Albatross),
+            "ncrb" => Some(Unit::Crab),
+            "nder" => Some(Unit::Deer),
+            "ndog" => Some(Unit::Dog),
+            "ndwm" => Some(Unit::DuneWorm),
+            "nech" => Some(Unit::Chicken),
+            "necr" => Some(Unit::Rabbit),
+            "nfbr" => Some(Unit::Felboar),
+            "nfro" => Some(Unit::Frog),
+            "nhmc" => Some(Unit::HermitCrab),
+            "npig" => Some(Unit::Pig),
+            "npng" | "npnw" => Some(Unit::Penguin),
+            "nrac" => Some(Unit::Raccoon),
+            "nrat" => Some(Unit::Rat),
+            "nsea" => Some(Unit::Seal),
+            "nsha" => Some(Unit::AmphSheep),
+            "nshe" => Some(Unit::Sheep),
+            "nshf" => Some(Unit::FlyingSheep),
+            "nshw" => Some(Unit::WaterSheep),
+            "nskk" => Some(Unit::Skink),
+            "nsno" => Some(Unit::SnowyOwl),
             _ => None,
         }
     }
