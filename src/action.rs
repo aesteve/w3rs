@@ -45,6 +45,7 @@ pub(crate) fn from_parsed_action(
                             None
                         }
                     },
+                    GameComponent::Item(item) => Some(Action::BuyItem(item.clone())),
                     _ => {
                         println!(
                             "TODO!(noparams): ability={:?}, selection={:?}",
@@ -264,14 +265,12 @@ impl Display for Action {
             Action::TrainUpgrade(upgrade) => write!(f, "trained {:?}", upgrade),
             Action::TrainHero(hero) => write!(f, "trained {:?}", hero),
             Action::TrainUnit(unit) => write!(f, "trained {:?}", unit),
-            Action::TrainSpell(spell) => writeln!(f, "learned {:?}", spell),
+            Action::TrainSpell(spell) => write!(f, "learned {:?}", spell),
             Action::SetRallyPoint { building, position } => {
-                writeln!(f, "set rally point for {:?} at {}", building, position)
+                write!(f, "set rally point for {:?} at {}", building, position)
             }
-            Action::BuyItem(item) => writeln!(f, "bought item {:?}", item),
-            Action::ConsumeItem { item, by } => {
-                writeln!(f, "consumed item {:?} with {:?}", item, by)
-            }
+            Action::BuyItem(item) => write!(f, "bought item {:?}", item),
+            Action::ConsumeItem { item, by } => write!(f, "consumed item {:?} with {:?}", item, by),
             Action::GatherResources {
                 units,
                 resource,
