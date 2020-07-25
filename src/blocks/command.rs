@@ -209,12 +209,12 @@ pub struct UnitBuildingAbilityActionTargetPositionTargetObjectId {
 #[derive(Debug, PartialEq)]
 pub struct GiveItemToUnitAction {
     command: Command,
-    item: GameComponent,
-    target_position: Position,
-    object_1: u32,
-    object_2: u32,
-    item_object_1: u32,
-    item_object_2: u32,
+    pub(crate) item: GameComponent,
+    pub(crate) target_position: Position,
+    pub(crate) object_1: u32,
+    pub(crate) object_2: u32,
+    pub(crate) item_object_1: u32,
+    pub(crate) item_object_2: u32,
 }
 
 #[derive(Debug, PartialEq)]

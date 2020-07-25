@@ -2,9 +2,9 @@ use crate::blocks::action::UnitCommand;
 use crate::blocks::command::{GameComponent, ParsedAction, Position, SelectedComponent};
 use crate::building::{Building, Upgrade};
 use crate::environment::Environment;
-use crate::item::Item;
+use crate::item::{Item, ItemOrSlot};
 use crate::spell::{HeroSpell, Spell};
-use crate::unit::{Hero, Inventory, Unit};
+use crate::unit::{Hero, Unit};
 use nom::lib::std::collections::HashMap;
 use nom::lib::std::fmt::Formatter;
 use std::fmt::{Debug, Display};
@@ -13,43 +13,32 @@ pub(crate) fn from_parsed_action(
     selection: &[SelectedComponent],
     action: &ParsedAction,
     components: &HashMap<u32, GameComponent>,
-    inventories: &mut HashMap<Hero, Inventory>,
-    shop_buyer: Option<&Hero>,
 ) -> Option<Action> {
     match action {
         ParsedAction::UnitBuildingAbilityNoParams(ability) => {
             if building_selected(selection) {
                 match &ability.item {
                     GameComponent::Unit(unit) => Some(Action::TrainUnit(unit.clone())),
-                    GameComponent::Hero(hero) => {
-                        inventories.insert(hero.clone(), Inventory::default());
-                        Some(Action::TrainHero(hero.clone()))
-                    }
+                    GameComponent::Hero(hero) => Some(Action::TrainHero(hero.clone())),
                     GameComponent::Upgrade(upgrade) => Some(Action::TrainUpgrade(upgrade.clone())),
-                    GameComponent::Item(item) => {
-                        if let Some(hero) = shop_buyer {
-                            Some(Action::BuyItem {
-                                item: item.clone(),
-                                buyer: hero.clone(),
-                            })
-                        } else {
-                            println!(
-                                "WARN :Could not find the hero who bought the item. {:?}",
-                                ability
-                            );
-                            None
-                        }
-                    }
+                    GameComponent::Item(item) => Some(Action::BuyItem(item.clone())),
+                    GameComponent::UsedSpell(spell) => Some(Action::UsedSpell {
+                        spell: spell.clone(),
+                        target: None,
+                        position: None,
+                    }),
                     GameComponent::Building(building) => {
                         Some(Action::UpgradeBuilding(building.clone()))
                     }
-                    _ => {
-                        println!("TODO(no params && building selected) {:?}", ability);
+                    GameComponent::Action(UnitCommand::Cancel) => {
+                        // ignore
                         None
                     }
+                    _ => None,
                 }
-            } else if unit_or_hero_selected(selection) {
+            } else {
                 match &ability.item {
+                    GameComponent::Item(item) => Some(Action::BuyItem(item.clone())),
                     GameComponent::UsedSpell(spell) => Some(Action::UsedSpell {
                         spell: spell.clone(),
                         target: None,
@@ -57,25 +46,19 @@ pub(crate) fn from_parsed_action(
                     }),
                     GameComponent::TrainedSpell(spell) => Some(Action::TrainSpell(spell.clone())),
                     GameComponent::Action(cmd) => match cmd {
-                        UnitCommand::UseItem(slot) => {
-                            use_item_from_inventory(*slot, selection, inventories, ability)
-                        }
+                        UnitCommand::UseItem(slot) => Some(Action::UseItem {
+                            item_or_slot: ItemOrSlot::Slot(*slot),
+                            at: None,
+                            on: None,
+                        }),
                         UnitCommand::Stop | UnitCommand::Hold => None,
                         _ => {
                             println!("TODO (action): {:?}", ability);
                             None
                         }
                     },
-                    _ => {
-                        println!(
-                            "TODO!(noparams): ability={:?}, selection={:?}",
-                            ability, selection
-                        );
-                        None
-                    }
+                    _ => None,
                 }
-            } else {
-                None
             }
         }
         ParsedAction::UnitBuildingAbilityTargetPositionTargetObjectId(ability) => {
@@ -117,18 +100,15 @@ pub(crate) fn from_parsed_action(
                             .or_else(|| components.get(&ability.object_2))
                             .map(GameComponent::clone),
                     }),
-                    UnitCommand::UseItem(slot) => {
-                        use_item_from_inventory(*slot, selection, inventories, ability)
-                    }
-                    UnitCommand::SwapItem(slot) => {
-                        let item1 = components.get(&ability.object_1);
-                        let item2 = components.get(&ability.object_2);
-                        println!(
-                            "TODO(swap) Swapping item with slot {}.  ability: {:?} | {:?} | {:?}",
-                            slot, ability, item1, item2
-                        );
-                        None
-                    }
+                    UnitCommand::UseItem(slot) => Some(Action::UseItem {
+                        item_or_slot: ItemOrSlot::Slot(*slot),
+                        at: Some(ability.target_position.clone()),
+                        on: components
+                            .get(&ability.object_1)
+                            .or_else(|| components.get(&ability.object_2))
+                            .map(GameComponent::clone),
+                    }),
+                    UnitCommand::SwapItem(_) => None,
                     UnitCommand::ChangeShopBuyer => {
                         if let Some(GameComponent::Hero(hero)) = components
                             .get(&ability.object_1)
@@ -136,10 +116,6 @@ pub(crate) fn from_parsed_action(
                         {
                             Some(Action::ChangeShopBuyer(hero.clone()))
                         } else {
-                            println!(
-                                "WARN: Could not find hero targeted by shop to buy items from {:?}",
-                                ability
-                            );
                             None
                         }
                     }
@@ -173,28 +149,45 @@ pub(crate) fn from_parsed_action(
                 building: building.clone(),
                 position: ability.target_position.clone(),
             }),
-            GameComponent::Item(item) => {
-                if let Some(GameComponent::Hero(hero)) = first_unit_from_selection(selection) {
-                    Some(Action::ConsumeItem {
-                        item: item.clone(),
-                        by: hero,
-                        at: Some(ability.target_position.clone()),
-                        on: None,
-                    })
-                } else {
-                    None
-                }
-            }
+            GameComponent::Item(item) => Some(Action::UseItem {
+                item_or_slot: ItemOrSlot::Item(item.clone()),
+                at: Some(ability.target_position.clone()),
+                on: None,
+            }),
             GameComponent::UsedSpell(spell) => Some(Action::UsedSpell {
                 spell: spell.clone(),
                 target: None,
                 position: Some(ability.target_position.clone()),
             }),
+            GameComponent::Action(action) => match action {
+                UnitCommand::UseItem(slot) => Some(Action::UseItem {
+                    item_or_slot: ItemOrSlot::Slot(*slot),
+                    at: Some(ability.target_position.clone()),
+                    on: None,
+                }),
+                _ => {
+                    println!(
+                        "TODO(UnitBuildingAbilityTargetPosition + Command) {:?}",
+                        ability
+                    );
+                    None
+                }
+            },
             _ => {
                 println!("TODO(UnitBuildingAbilityTargetPosition) {:?}", ability);
                 None
             }
         },
+        ParsedAction::GiveItem(action) => {
+            if let Some(GameComponent::Item(item)) = components
+                .get(&action.item_object_1)
+                .or_else(|| components.get(&action.item_object_2))
+            {
+                Some(Action::DropItem(item.clone()))
+            } else {
+                None
+            }
+        }
         ParsedAction::ChangeSelection(_)
         | ParsedAction::AssignGroupHotkey(_)
         | ParsedAction::PreSubselection
@@ -221,39 +214,8 @@ fn units_from_selection(selection: &[SelectedComponent]) -> Vec<Unit> {
         .collect()
 }
 
-fn use_item_from_inventory<T: Debug>(
-    slot: u8,
-    selection: &[SelectedComponent],
-    inventories: &mut HashMap<Hero, Inventory>,
-    ability: T,
-) -> Option<Action> {
-    // find item in inventory
-    if let Some(GameComponent::Hero(hero)) = first_unit_from_selection(selection) {
-        let maybe_item = inventories
-            .get_mut(&hero)
-            .and_then(|inventory| inventory.use_slot(slot));
-        if let Some(item) = maybe_item {
-            Some(Action::ConsumeItem {
-                item,
-                by: hero,
-                at: None,
-                on: None,
-            })
-        } else {
-            println!("WARN: Could not find item in inventory for hero: {:?} in slot {:?}. This is a WIP, please report a bug", hero, slot);
-            None
-        }
-    } else {
-        println!("BUG: looks like an item used by something that's not an hero, this is definitely a parser bug. (some unit selection has been forgotten). Ability: {:?}. Selection: {:?}", ability, selection);
-        None
-    }
-}
-
-fn first_unit_from_selection(selection: &[SelectedComponent]) -> Option<GameComponent> {
-    selection
-        .get(0)
-        .and_then(|s| s.kind.as_ref())
-        .map(GameComponent::clone)
+fn first_unit_from_selection(selection: &[SelectedComponent]) -> Option<&GameComponent> {
+    selection.get(0).and_then(|s| s.kind.as_ref())
 }
 
 fn building_selected(selection: &[SelectedComponent]) -> bool {
@@ -261,16 +223,6 @@ fn building_selected(selection: &[SelectedComponent]) -> bool {
         None => false,
         Some(gc) => match gc {
             GameComponent::Building(_) => true,
-            _ => false,
-        },
-    })
-}
-
-fn unit_or_hero_selected(selection: &[SelectedComponent]) -> bool {
-    selection.iter().any(|s| match &s.kind {
-        None => false,
-        Some(gc) => match gc {
-            GameComponent::Unit(_) | GameComponent::Hero(_) => true,
             _ => false,
         },
     })
@@ -302,14 +254,12 @@ pub enum Action {
         target: Option<GameComponent>,
         position: Option<Position>,
     },
+    // Items
     ChangeShopBuyer(Hero),
-    BuyItem {
-        item: Item,
-        buyer: Hero,
-    },
-    ConsumeItem {
-        item: Item,
-        by: Hero,
+    BuyItem(Item),
+    DropItem(Item),
+    UseItem {
+        item_or_slot: ItemOrSlot,
         at: Option<Position>,
         on: Option<GameComponent>,
     },
@@ -352,9 +302,17 @@ impl Display for Action {
             Action::TrainUnit(unit) => write!(f, "trained {:?}", unit),
             Action::TrainSpell(spell) => write!(f, "learned {:?}", spell),
             Action::SetRallyPoint(position) => write!(f, "set rally point at {}", position),
-            Action::BuyItem { item, buyer } => write!(f, "{:?} bought item {:?}", buyer, item),
-            Action::ConsumeItem { item, by, at, on } => {
-                write!(f, "consumed item {:?} with {:?}", item, by)?;
+            Action::BuyItem(item) => write!(f, "bought item {:?}", item),
+            Action::UseItem {
+                item_or_slot,
+                at,
+                on,
+            } => {
+                write!(f, "consumed item ")?;
+                match item_or_slot {
+                    ItemOrSlot::Slot(slot) => write!(f, "in inventory slot {}", slot)?,
+                    ItemOrSlot::Item(item) => write!(f, "{:?}", item)?,
+                }
                 if let Some(target) = on {
                     write!(f, " on {:?}", target)
                 } else if let Some(pos) = at {

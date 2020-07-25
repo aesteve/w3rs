@@ -1,59 +1,3 @@
-use crate::item::Item;
-
-// Structure holding an hero item inventory
-#[derive(Debug, PartialEq)]
-pub struct Inventory {
-    slots: [Option<Item>; 6],
-}
-
-impl Default for Inventory {
-    fn default() -> Self {
-        Inventory {
-            slots: [None, None, None, None, None, None],
-        }
-    }
-}
-
-impl Inventory {
-    fn idx_from_usize(u: u8) -> usize {
-        match u as usize {
-            1 => 0,
-            2 => 1,
-            4 => 2,
-            5 => 3,
-            7 => 4,
-            8 => 5,
-            other => panic!("Cannot understand item slot number {}", other),
-        }
-    }
-
-    pub fn use_slot(&mut self, slot: u8) -> Option<Item> {
-        let item = self.slots[Inventory::idx_from_usize(slot)].clone();
-        self.slots[Inventory::idx_from_usize(slot)] = None; // TODO: item "charges"
-        item
-    }
-
-    pub fn add_item(&mut self, item: Item) {
-        if let Some(slot) = self.slots.iter().position(|slot| slot.is_none()) {
-            self.slots[slot] = Some(item)
-        } else {
-            println!("No more room in inventory for item {:?}", item);
-        }
-    }
-
-    pub fn drop(&mut self, slot: u8) {
-        self.slots[Inventory::idx_from_usize(slot)] = None
-    }
-
-    pub fn swap(&mut self, slots: (u8, u8)) {
-        let idx_1 = Inventory::idx_from_usize(slots.0);
-        let idx_2 = Inventory::idx_from_usize(slots.1);
-        let fst = self.slots[idx_1].clone();
-        self.slots[idx_1] = self.slots[idx_2].clone();
-        self.slots[idx_2] = fst;
-    }
-}
-
 #[derive(Debug, PartialEq, Clone)]
 pub enum Unit {
     // NE
@@ -121,6 +65,7 @@ pub enum Unit {
     DireWolf,
     ShadowWolf,
     SkeletonWarrior,
+    SkeletalArcher,
     SkeletalMage,
     CarrionScarab1,
     CarrionScarab2,
@@ -154,6 +99,7 @@ pub enum Unit {
     DarkMinion3,
     PocketFactory,
     // Neutral
+    GoblinMerchant,
     SkeletalMarksman,
     BurningArcher,
     DragonHawk,
@@ -445,6 +391,7 @@ impl Unit {
             "ndr3" => Some(Unit::DarkMinion3),
             "nfa1" | "nfa2" | "nfa3" => Some(Unit::PocketFactory),
             // Neutral
+            "ngme" => Some(Unit::GoblinMerchant),
             "nskm" => Some(Unit::SkeletalMarksman),
             "nskf" => Some(Unit::BurningArcher),
             "nws1" => Some(Unit::DragonHawk),
@@ -541,6 +488,8 @@ impl Unit {
             "nwzr" => Some(Unit::RogueWizard),
             "nzom" => Some(Unit::Zombie),
             "nwzd" => Some(Unit::DarkWizard),
+            "nsca" => Some(Unit::SkeletalArcher),
+            "nsce" => Some(Unit::SkeletonWarrior),
             // Still TODO
             // Critters
             "nalb" => Some(Unit::Albatross),

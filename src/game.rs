@@ -1,4 +1,4 @@
-use crate::action::{from_parsed_action, Action};
+use crate::action::from_parsed_action;
 use crate::blocks::chat::ChatMsgBlock;
 use crate::blocks::command::{GameComponent, SelectedComponent};
 use crate::blocks::compressedblock::{compressed_data_blocks, deflate_game};
@@ -11,7 +11,6 @@ use crate::metadata::game::{
 use crate::metadata::player::{parse_players, parse_players_slots};
 use crate::metadata::replay::parse_header;
 use crate::player::Player;
-use crate::unit::{Hero, Inventory};
 use itertools::Itertools;
 use std::collections::HashMap;
 use std::fmt::{Debug, Display, Formatter};
@@ -217,9 +216,7 @@ impl Game {
         let mut game_components: HashMap<u32, GameComponent> = HashMap::new();
         let mut player_selection: HashMap<u8, Vec<SelectedComponent>> = HashMap::new();
         let mut events: Vec<GameEvent> = Vec::new();
-        let mut inventories: HashMap<Hero, Inventory> = HashMap::new();
         let mut player_hotkey_groups: HashMap<u8, Vec<SelectedComponent>> = HashMap::new();
-        let mut shop_buyers: HashMap<u8, Hero> = HashMap::new();
         for block in &self.blocks {
             match block {
                 GameBlock::TimeSlot(ts_block) => {
@@ -254,17 +251,9 @@ impl Game {
                                 }
                             }
                             if let Some(selected_units) = player_selection.get(&player) {
-                                let parsed = from_parsed_action(
-                                    selected_units,
-                                    action,
-                                    &game_components,
-                                    &mut inventories,
-                                    shop_buyers.get(&player),
-                                );
+                                let parsed =
+                                    from_parsed_action(selected_units, action, &game_components);
                                 if let Some(action) = parsed {
-                                    if let Action::ChangeShopBuyer(hero) = &action {
-                                        shop_buyers.insert(player, hero.clone());
-                                    }
                                     events.push(GameEvent {
                                         time,
                                         player_id: player,
@@ -365,11 +354,15 @@ mod tests {
         for event in events
             .iter()
             .filter(|e| match &e.event {
+                // avoid noisy actions
                 Event::Action {
                     action,
                     selection: _,
                 } => match action {
                     Action::Move(_) => false,
+                    Action::SetRallyPoint(_) => false,
+                    Action::RightClick { at: _, target: _ } => false,
+                    Action::Attack { at: _, target: _ } => false,
                     _ => true,
                 },
                 _ => true,

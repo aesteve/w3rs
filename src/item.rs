@@ -236,6 +236,13 @@ pub enum Item {
     KegOfThunderwater,
     ThunderbloomBulb,
 }
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum ItemOrSlot {
+    Item(Item),
+    Slot(u8),
+}
+
 impl Item {
     pub(crate) fn from_str(str: &str) -> Option<Item> {
         match str {
