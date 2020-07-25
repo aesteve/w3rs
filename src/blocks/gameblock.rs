@@ -10,7 +10,7 @@ use nom::{
 use std::convert::TryInto;
 
 #[derive(Debug)]
-pub enum GameBlock {
+pub(crate) enum GameBlock {
     Leave(LeaveGameBlock),
     TimeSlot(TimeSlotBlock),
     PlayerChatMsg(PlayerChatMsgBlock),
@@ -19,6 +19,7 @@ pub enum GameBlock {
 }
 
 impl GameBlock {
+    #[allow(dead_code)]
     pub fn should_display(&self) -> bool {
         match self {
             GameBlock::Unknown | GameBlock::Ignored => false,

@@ -57,62 +57,63 @@ Actions are properly parsed without crashing and are in the process of being "an
 
 The main goal is to be able to display a human-readable list of actions.
 Some don't require any additional work, like player chat messages. 
-The others do, and for now there's only a derived `Debug` of actions, here's a debug output example of the last actions of a game:
+The others do, and for now there's a derived `Debug` implementation for actions, and a `Display`, here's a display output example of some (filtered) actions of a game:
 
 ```
-[14m 27s 986ms] Player 1:
-	SelectGroupHotkey(1)
-	PreSubselection
-	SelectSubgroup(SelectSubgroupAction { item: Str("edry"), object_1: 25843, object_2: 173511 })
+Anayzed game:
+Warcraft 3 Reforged game. (Custom, OneOnOne)
+	Map: Maps/frozenthrone/(2)terenasstand_lv.w3x
+	Team 1: [ Grubby#xxxx (OR) ] ✅
+	Team 2: [ Happy#xxxx (UD) ]
 
-[14m 28s 77ms] Player 1:
-	UnitBuildingAbilityTargetPositionTargetObjectId(UnitBuildingAbilityActionTargetPositionTargetObjectId { ability: 0, item: Binary([3, 0, 13, 0]), target_position: Position { x: -3767.7666, y: -3365.984 }, object_1: 25770, object_2: 233844 })
-
-[14m 28s 88ms] Player 1:
-	SelectGroupHotkey(0)
-	PreSubselection
-	SelectSubgroup(SelectSubgroupAction { item: Str("Edem"), object_1: 27622, object_2: 42132 })
-
-[14m 28s 159ms] Player 2: gg
-
-[14m 28s 179ms] Player 1:
-	SelectGroupHotkey(1)
-	PreSubselection
-	SelectSubgroup(SelectSubgroupAction { item: Str("edry"), object_1: 25843, object_2: 173511 })
-
-[14m 28s 179ms] Player 2: gg
-
-[14m 28s 220ms] Player 1:
-	UnitBuildingAbilityTargetPositionTargetObjectId(UnitBuildingAbilityActionTargetPositionTargetObjectId { ability: 0, item: Binary([3, 0, 13, 0]), target_position: Position { x: -3734.205, y: -3364.9844 }, object_1: 25770, object_2: 233844 })
-
-[14m 28s 331ms] Player 1:
-	SelectGroupHotkey(0)
-	PreSubselection
-	SelectSubgroup(SelectSubgroupAction { item: Str("Edem"), object_1: 27622, object_2: 42132 })
-
-[14m 28s 362ms] Player 1:
-	UnitBuildingAbilityTargetPositionTargetObjectId(UnitBuildingAbilityActionTargetPositionTargetObjectId { ability: 24, item: Binary([3, 0, 13, 0]), target_position: Position { x: -3700.644, y: -3363.9854 }, object_1: 25770, object_2: 233844 })
-
-[14m 28s 381ms] Player 1:
-	SelectGroupHotkey(1)
-	PreSubselection
-	SelectSubgroup(SelectSubgroupAction { item: Str("edry"), object_1: 25843, object_2: 173511 })
-
-[14m 28s 391ms] Player 2 left [1, 0, 0, 0]|[13, 0, 0, 0]
-
-[14m 28s 391ms] Player 1 left [12, 0, 0, 0]|[7, 0, 0, 0]
-```
-Which would translate in an human-readable way as:
-```
-[14m 27s 986ms] Player 1 has selected the second control group. Within this group the first unit is a Dryad
-[14m 28s 77ms] With this group selected, Player 1 chose to attack at Position { x: -3767.7666, y: -3365.984 } on map
-[14m 28s 88ms] Player 1 has selected the second control group. Within this group the first unit is the Demon Hunter hero
-[14m 28s 159ms] Player 2 said 'gg'
-[14m 28s 179ms] Player 1 has selected the second control group. Within this group the first unit is a Dryad
-[14m 28s 179ms] Player 2 said 'gg' (that seems to be a bug in Reforged games, some chat messages are recorded twice)
- [...]
-[14m 28s 391ms] Player 2 left, losing the game
-[14m 28s 391ms] Player 1 left, won the game
+[1s 601ms] Player 9: [Building(GreatHall)] trained Peon
+[1s 741ms] Player 9: [Building(GreatHall)] trained Peon
+[2s 753ms] Player 9: [Unit(Peon)] built AltarOfStorms at {x=4256,y=-5088}
+[3s 371ms] Player 8: [Unit(Acolyte)] built Ziggurat at {x=-4448,y=4064}
+[6s 112ms] Player 9: [All] gl hf
+[6s 131ms] Player 9: [All] gl hf
+[8s 66ms] Player 8: [Building(Necropolis)] trained Acolyte
+[10s 161ms] Player 8: [All] hf
+[13s 163ms] Player 9: [Unit(Peon)] built Burrow at {x=4576,y=-4576}
+[22s 229ms] Player 9: [Building(GreatHall)] trained Peon
+[31s 889ms] Player 8: [Unit(Acolyte)] built Crypt at {x=-3584,y=4160}
+[38s 657ms] Player 9: [Building(GreatHall)] trained Peon
+[40s 758ms] Player 8: [Building(Necropolis)] trained Acolyte
+[47s 963ms] Player 9: [Unit(Peon)] built WarMill at {x=4448,y=-4128}
+[54s 941ms] Player 9: [Building(GreatHall)] trained Peon
+...
+[6m 38s 710ms] Player 9: [Building(Beastiary)] trained Raider
+[6m 41s 83ms] Player 8: [Hero(Lich)] learned FrostNova
+[6m 43s 45ms] Player 8: [Building(Slaughterhouse)] trained ObsidianStatue
+...
+[11m 30s 627ms] Player 9: [Unit(Raider)] used Unit(Ensnare) on Unit(Destroyer)
+[11m 32s 387ms] Player 9: [Unit(Berserker)] used Unit(Berserk)
+[11m 35s 925ms] Player 9: [Hero(TaurenChieftain)] used Hero(WarStomp)
+[11m 36s 187ms] Player 8: [Hero(DeathKnight)] learned UnholyAura
+[11m 38s 507ms] Player 9: [Hero(FarSeer)] used Hero(FeralSpirit)
+[11m 39s 791ms] Player 8: [Unit(ObsidianStatue)] used Unit(MorphToDestroyer)
+[11m 40s 22ms] Player 9: [Hero(TaurenChieftain)] consumed item in inventory slot 4
+[11m 40s 317ms] Player 8: [Unit(Destroyer)] used Unit(DevourMagic) at Position { x: -466.86584, y: -3953.7498 }
+[11m 40s 970ms] Player 9: [Hero(TaurenChieftain)] consumed item in inventory slot 5
+...
+[14m 23s 116ms] Player 9: [Building(Beastiary)] trained Raider
+[14m 25s 894ms] Player 8: [Unit(ObsidianStatue)] used Unit(EnableAutoEssenceOfBlight)
+[14m 29s 303ms] Player 8: [Hero(Lich)] used Hero(FrostNova) on Unit(Raider)
+[14m 29s 399ms] Player 9: [Unit(Raider)] used Unit(Ensnare) at Position { x: 1874.1353, y: 2990.959 }
+[14m 31s 839ms] Player 9: [Hero(FarSeer)] consumed item in inventory slot 5
+[14m 35s 967ms] Player 9: [Hero(TaurenChieftain)] used Hero(WarStomp)
+[14m 36s 371ms] Player 8: [Hero(Lich)] used Hero(FrostArmor) on Hero(DeathKnight)
+[14m 36s 795ms] Player 9: [Hero(FarSeer)] used Hero(ChainLightning) on Hero(DeathKnight)
+[14m 38s 228ms] Player 9: [Unit(Raider)] used Unit(Ensnare) on Hero(DeathKnight)
+[14m 38s 730ms] Player 8: [Hero(DeathKnight)] used Hero(DeathCoil) on Unit(DireWolf)
+[14m 39s 810ms] Player 8: [Hero(DeathKnight)] used Hero(DeathCoil) on Unit(DireWolf)
+[14m 40s 718ms] Player 9: [Unit(KodoBeast)] used Unit(Devour) at Position { x: 1549.1111, y: 3128.6643 }
+[14m 44s 505ms] Player 9: [Unit(Berserker)] consumed item in inventory slot 7
+[14m 44s 850ms] Player 9: [Unit(Berserker)] used Hero(WarStomp)
+[14m 47s 895ms] Player 9: [Building(OrcBarracks)] trained Berserker
+[14m 48s 87ms] Player 9: [Building(Beastiary)] trained Raider
+[14m 48s 886ms] Player 9: [Unit(Berserker)] used Unit(Berserk)
+[14m 50s 511ms] Player 8: [All] gg
 ```
 
 ## Testing & stuff
