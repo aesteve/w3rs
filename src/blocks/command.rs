@@ -108,26 +108,20 @@ impl ParsedAction {
     }
 
     fn discard(&self) -> bool {
-        match self {
-            ParsedAction::W3MMD(_)
+        matches!(self, ParsedAction::W3MMD(_)
             | ParsedAction::ContinueGame
             | ParsedAction::EscapedPressed
             | ParsedAction::ScenarioTrigger
             | ParsedAction::MapTriggerChat(_)
             | ParsedAction::SaveFinished
             | ParsedAction::PreSubselection
-            | ParsedAction::Unknown => true,
-            _ => false,
-        }
+            | ParsedAction::Unknown)
     }
 
     #[allow(dead_code)]
     pub(crate) fn should_display(&self) -> bool {
         !self.discard()
-            && match self {
-                ParsedAction::ChangeSelection(_) | ParsedAction::SelectSubgroup(_) => false,
-                _ => true,
-            }
+            && !matches!(self, ParsedAction::ChangeSelection(_) | ParsedAction::SelectSubgroup(_))
     }
 }
 

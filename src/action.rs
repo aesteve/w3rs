@@ -221,10 +221,7 @@ fn first_unit_from_selection(selection: &[SelectedComponent]) -> Option<&GameCom
 fn building_selected(selection: &[SelectedComponent]) -> bool {
     selection.iter().any(|s| match &s.kind {
         None => false,
-        Some(gc) => match gc {
-            GameComponent::Building(_) => true,
-            _ => false,
-        },
+        Some(gc) => matches!(gc, GameComponent::Building(_)),
     })
 }
 
