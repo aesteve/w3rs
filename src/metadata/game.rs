@@ -44,7 +44,6 @@ pub(crate) fn parse_game_metadata(input: &[u8]) -> IResult<&[u8], GameMetaData> 
         game_type: game_type.to_vec(),
         language: language.to_vec(),
     };
-    println!("game metadata: {game_metadata:?}");
     Ok((
         rest,
         GameMetaData {
