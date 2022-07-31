@@ -36,14 +36,6 @@ pub(crate) fn parse_game_metadata(input: &[u8]) -> IResult<&[u8], GameMetaData> 
     let (rest, nb_players) = le_u32(rest)?;
     let (rest, game_type) = take(4usize)(rest)?;
     let (rest, language) = take(4usize)(rest)?;
-    let game_metadata = GameMetaData {
-        host: host.clone(),
-        game_name: game_name.clone(),
-        encoded_map_info: encoded_map_info.to_vec(),
-        nb_players,
-        game_type: game_type.to_vec(),
-        language: language.to_vec(),
-    };
     Ok((
         rest,
         GameMetaData {
