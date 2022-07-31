@@ -1,4 +1,4 @@
-use crate::action::from_parsed_action;
+use crate::action::{from_parsed_action, Action};
 use crate::blocks::chat::ChatMsgBlock;
 use crate::blocks::command::{GameComponent, SelectedComponent};
 use crate::blocks::compressedblock::{compressed_data_blocks, deflate_game};
@@ -13,10 +13,10 @@ use crate::metadata::replay::parse_header;
 use crate::player::Player;
 use itertools::Itertools;
 use std::collections::HashMap;
-use std::fmt::{Debug, Display, Formatter};
+use std::fmt::Debug;
+use std::fs;
 use std::path::Path;
 use std::time::Duration;
-use std::{fmt, fs};
 
 #[derive(Debug)]
 pub struct Game {
@@ -299,57 +299,28 @@ impl Game {
     }
 }
 
-impl Display for Game {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let outcome = self.outcome();
-        writeln!(f, "Warcraft 3 Reforged game. {:?}", self.game_type())?;
-        writeln!(f, "\tMap: {}", self.map.name)?;
-        for (team, players) in self.players_by_team() {
-            let team_won = outcome == GameOutcome::Winner(team);
-            write!(f, "\tTeam {:?}:", team + 1)?;
-            write!(f, " [ ")?;
-            for player in players {
-                write!(f, "{} ", player)?;
-            }
-            write!(f, "]")?;
-            if team_won {
-                write!(f, " ✅")?;
-            }
-            writeln!(f)?;
-        }
-        Ok(())
-    }
-}
-
-impl Display for GameBlock {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            GameBlock::PlayerChatMsg(msg) => writeln!(f, "Player {}: {}", msg.player_id, msg.text)?,
-            GameBlock::Leave(left) => writeln!(
-                f,
-                "Player {} left {:?}|{:?}",
-                left.player_id, left.reason, left.result
-            )?,
-            GameBlock::TimeSlot(ts_block) => {
-                if let Some(cmd) = &ts_block.command {
-                    writeln!(f, "Player {}:", cmd.player)?;
-                    for action in &cmd.actions {
-                        writeln!(f, "\t{:?}", action)?;
-                    }
-                }
-            }
-            _ => {}
-        }
-        Ok(())
+pub(crate) fn non_noisy(event: &&GameEvent) -> bool {
+    match &event.event {
+        // avoid noisy actions
+        Event::Action {
+            action,
+            selection: _,
+        } => !matches!(
+            action,
+            Action::Move(_)
+                | Action::SetRallyPoint(_)
+                | Action::RightClick { at: _, target: _ }
+                | Action::Attack { at: _, target: _ }
+        ),
+        _ => true,
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::action::Action;
+    use crate::display::player::player_msg_color;
     use crate::event::{Event, GameEvent};
-    use crate::game::Game;
-    use crate::player::player_msg_color;
+    use crate::game::{non_noisy, Game};
     use colored::{Color, Colorize};
     use humantime::format_duration;
     use std::path::Path;
@@ -357,27 +328,10 @@ mod tests {
     #[test]
     fn parse_replay_events() {
         let game = Game::parse(Path::new("./replays-ignore/vs_HAPPY_1_TS.w3g"));
-        println!("Anayzed game:");
+        println!("Analyzed game:");
         println!("{}", game);
         let events = game.events();
-        for event in events
-            .iter()
-            .filter(|e| match &e.event {
-                // avoid noisy actions
-                Event::Action {
-                    action,
-                    selection: _,
-                } => !matches!(
-                    action,
-                    Action::Move(_)
-                        | Action::SetRallyPoint(_)
-                        | Action::RightClick { at: _, target: _ }
-                        | Action::Attack { at: _, target: _ }
-                ),
-                _ => true,
-            })
-            .collect::<Vec<&GameEvent>>()
-        {
+        for event in events.iter().filter(non_noisy).collect::<Vec<&GameEvent>>() {
             let color = game
                 .player(event.player_id)
                 .and_then(player_msg_color)

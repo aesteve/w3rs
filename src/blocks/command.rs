@@ -7,7 +7,6 @@ use crate::unit::{Hero, Unit};
 use crate::utils::zero_terminated_string;
 use nom::bytes::complete::take;
 use nom::combinator::map_res;
-use nom::lib::std::fmt::Formatter;
 use nom::multi::{count, many0};
 use nom::{
     number::complete::{le_f32, le_u16, le_u32, le_u8},
@@ -15,7 +14,6 @@ use nom::{
 };
 use std::collections::HashMap;
 use std::convert::TryInto;
-use std::fmt::Display;
 
 #[derive(Debug, PartialEq)]
 pub struct CommandData {
@@ -108,20 +106,26 @@ impl ParsedAction {
     }
 
     fn discard(&self) -> bool {
-        matches!(self, ParsedAction::W3MMD(_)
-            | ParsedAction::ContinueGame
-            | ParsedAction::EscapedPressed
-            | ParsedAction::ScenarioTrigger
-            | ParsedAction::MapTriggerChat(_)
-            | ParsedAction::SaveFinished
-            | ParsedAction::PreSubselection
-            | ParsedAction::Unknown)
+        matches!(
+            self,
+            ParsedAction::W3MMD(_)
+                | ParsedAction::ContinueGame
+                | ParsedAction::EscapedPressed
+                | ParsedAction::ScenarioTrigger
+                | ParsedAction::MapTriggerChat(_)
+                | ParsedAction::SaveFinished
+                | ParsedAction::PreSubselection
+                | ParsedAction::Unknown
+        )
     }
 
     #[allow(dead_code)]
     pub(crate) fn should_display(&self) -> bool {
         !self.discard()
-            && !matches!(self, ParsedAction::ChangeSelection(_) | ParsedAction::SelectSubgroup(_))
+            && !matches!(
+                self,
+                ParsedAction::ChangeSelection(_) | ParsedAction::SelectSubgroup(_)
+            )
     }
 }
 
@@ -154,14 +158,8 @@ pub enum GameComponent {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Position {
-    x: f32,
-    y: f32,
-}
-
-impl Display for Position {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{{x={},y={}}}", self.x, self.y)
-    }
+    pub(crate) x: f32,
+    pub(crate) y: f32,
 }
 
 #[derive(Debug, PartialEq)]

@@ -98,26 +98,28 @@ mod tests {
     use std::fs::DirEntry;
     use std::path::Path;
 
-    fn test_replay(file: DirEntry) {
+    fn metadata_parsed_properly(file: DirEntry) {
         let file = fs::read(file.path()).expect("Can read replay as bytes");
         let (rest, _) = parse_header(&file[..]).unwrap();
         let (_, blocks) = compressed_data_blocks(rest).unwrap();
         let decoded = deflate_game(&blocks).unwrap();
-        parse_game_metadata(&decoded).unwrap();
+        let res = parse_game_metadata(&decoded);
+        assert!(res.is_ok());
     }
 
-    fn test_replays<P: AsRef<Path>>(path: P) {
+    fn replays_metadata_is_parsed<P: AsRef<Path>>(path: P) {
         for file in fs::read_dir(path)
             .expect("Replays dir should exist")
             .map(|m| m.unwrap())
         {
-            test_replay(file);
+            metadata_parsed_properly(file);
         }
     }
 
     #[test]
     fn data_blocks_test() {
-        test_replays("./replays/");
-        test_replays("./replays-ignore/");
+        replays_metadata_is_parsed("./replays/");
+        replays_metadata_is_parsed("./replays-ignore/");
+        replays_metadata_is_parsed("./replays-w3info/")
     }
 }
