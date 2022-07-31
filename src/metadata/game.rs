@@ -31,11 +31,20 @@ pub(crate) fn parse_game_metadata(input: &[u8]) -> IResult<&[u8], GameMetaData> 
     let (rest, _) = take(5usize)(input)?;
     let (rest, host) = parse_player_metadata(rest)?;
     let (rest, game_name) = zero_terminated_string(rest)?;
-    let (rest, _) = zero_terminated_string(rest)?;
+    let (rest, _) = zero_terminated_string(rest)?; // private string
     let (rest, encoded_map_info) = zero_terminated(rest)?;
     let (rest, nb_players) = le_u32(rest)?;
     let (rest, game_type) = take(4usize)(rest)?;
     let (rest, language) = take(4usize)(rest)?;
+    let game_metadata = GameMetaData {
+        host: host.clone(),
+        game_name: game_name.clone(),
+        encoded_map_info: encoded_map_info.to_vec(),
+        nb_players,
+        game_type: game_type.to_vec(),
+        language: language.to_vec(),
+    };
+    println!("game metadata: {game_metadata:?}");
     Ok((
         rest,
         GameMetaData {
@@ -51,23 +60,17 @@ pub(crate) fn parse_game_metadata(input: &[u8]) -> IResult<&[u8], GameMetaData> 
 
 #[derive(Debug, PartialEq)]
 pub struct GameStartRecord {
-    check_game_start_record: u8,
-    game_start_record: u8,
     data_byte_count: u16,
     pub(crate) slot_record_count: u8,
 }
 
 pub fn parse_start_record(input: &[u8]) -> IResult<&[u8], GameStartRecord> {
-    let (rest, check_game_start_record) = le_u8(input)?;
-    let (rest, _) = take_while(|b: u8| b != 25)(rest)?;
-    let (rest, game_start_record) = le_u8(rest)?;
-    let (rest, data_byte_count) = le_u16(rest)?;
+    let (rest, _) = take_while(|b: u8| b != 0x19)(input)?;
+    let (rest, data_byte_count) = le_u16(&rest[1..])?;
     let (rest, slot_record_count) = le_u8(rest)?;
     Ok((
         rest,
         GameStartRecord {
-            check_game_start_record,
-            game_start_record,
             data_byte_count,
             slot_record_count,
         },

@@ -8,7 +8,7 @@ use crate::map::{parse_map_info, MapInfo};
 use crate::metadata::game::{
     parse_game_metadata, parse_game_pos, parse_start_record, GamePosData, GameStartRecord,
 };
-use crate::metadata::player::{parse_players, parse_players_slots};
+use crate::metadata::player::{parse_players, parse_players_reforged, parse_players_slots};
 use crate::metadata::replay::parse_header;
 use crate::player::Player;
 use itertools::Itertools;
@@ -70,7 +70,7 @@ impl Game {
                 teams_who_lost.push(team_id);
             }
         }
-        if teams_who_lost.len() == all_teams.len() - 1 {
+        if !all_teams.is_empty() && teams_who_lost.len() == all_teams.len() - 1 {
             return GameOutcome::Winner(
                 *(all_teams
                     .iter()
@@ -111,7 +111,16 @@ impl Game {
         let (rest, metadata) =
             parse_game_metadata(&decoded).expect("Could not parse game metadata");
         let (rest, players_metadata) =
-            parse_players(metadata.nb_players - 1)(rest).expect("could not parse players metadata");
+            parse_players(rest).expect("could not parse players metadata");
+        // println!("rest is: {rest:?}");
+        let mut rest = rest;
+        if rest[0] != 0x19 {
+            // TODO: handle Reforged-style players (Protobuf w/ icon, etc.)
+            let (b, _players_reforged_metadata) =
+                parse_players_reforged(rest).expect("Could not parse players metadata (reforged)");
+            rest = b;
+        }
+
         let (rest, game_start_record) =
             parse_start_record(rest).expect("Could not parse start record");
         let (rest, players_slots) = parse_players_slots(game_start_record.slot_record_count)(rest)
@@ -135,7 +144,7 @@ impl Game {
                     })
                 } else {
                     players_metadata.iter().find_map(|m| {
-                        if m.id == slot.player_id && m.name != "" {
+                        if m.id == slot.player_id && !m.name.is_empty() {
                             Some(Player {
                                 team_id: slot.team_id,
                                 id: m.id,
@@ -358,13 +367,13 @@ mod tests {
                 Event::Action {
                     action,
                     selection: _,
-                } => match action {
-                    Action::Move(_) => false,
-                    Action::SetRallyPoint(_) => false,
-                    Action::RightClick { at: _, target: _ } => false,
-                    Action::Attack { at: _, target: _ } => false,
-                    _ => true,
-                },
+                } => !matches!(
+                    action,
+                    Action::Move(_)
+                        | Action::SetRallyPoint(_)
+                        | Action::RightClick { at: _, target: _ }
+                        | Action::Attack { at: _, target: _ }
+                ),
                 _ => true,
             })
             .collect::<Vec<&GameEvent>>()
@@ -372,7 +381,7 @@ mod tests {
             let color = game
                 .player(event.player_id)
                 .and_then(player_msg_color)
-                .unwrap_or_else(|| Color::White);
+                .unwrap_or(Color::White);
             print!(
                 "{}",
                 format!(

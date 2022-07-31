@@ -11,7 +11,7 @@ use std::fmt::Display;
 #[derive(Debug)]
 pub(crate) struct PlayerChatMsgMetadata {
     player_id: u8,
-    byte_count: u16,
+    // byte_count: u16,
 }
 
 #[derive(Debug)]
@@ -63,12 +63,12 @@ fn addressee_chat_msg(input: &[u8]) -> IResult<&[u8], ChatMsgBlock> {
 
 fn parse_msg_metadata(input: &[u8]) -> IResult<&[u8], PlayerChatMsgMetadata> {
     let (rest, player_id) = le_u8(input)?;
-    let (rest, byte_count) = le_u16(rest)?;
+    let (rest, _byte_count) = le_u16(rest)?;
     Ok((
         rest,
         PlayerChatMsgMetadata {
             player_id,
-            byte_count,
+            // byte_count,
         },
     ))
 }

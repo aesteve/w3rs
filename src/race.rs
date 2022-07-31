@@ -14,8 +14,8 @@ pub enum Race {
 impl Race {
     pub(crate) fn from_u8(flag: u8) -> Race {
         match flag {
-            1 => Race::Human,
-            65 => Race::Human,
+            0x01 => Race::Human,
+            0x41 => Race::Human,
             2 => Race::Orc,
             66 => Race::Orc,
             4 => Race::NightElf,

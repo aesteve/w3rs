@@ -56,6 +56,16 @@ fn parse_replay_metadata(input: &[u8]) -> IResult<&[u8], ReplayMetaData> {
     let (rest, flags) = take(2usize)(rest)?;
     let (rest, replay_length_ms) = le_u32(rest)?;
     let (rest, checksum) = le_u32(rest)?;
+    // let (rest, _checksum_sha1) = le_u32(rest)?;
+    // let metadata = ReplayMetaData {
+    //     game_identifier: String::from_utf8_lossy(game_identifier).to_string(),
+    //     version,
+    //     build_no,
+    //     flags: String::from_utf8_lossy(flags).to_string(),
+    //     replay_length_ms,
+    //     checksum,
+    // };
+    // println!("metadata: {metadata:?}");
     Ok((
         rest,
         ReplayMetaData {

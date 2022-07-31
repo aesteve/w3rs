@@ -51,12 +51,41 @@ mod tests {
     }
 
     #[test]
+    fn parse_players_properly() {
+        let game = Game::parse(Path::new(
+            "./replays-w3info/3210760876_FeaR_Kiosuke_Northern Isles.w3g",
+        ));
+        let players = game.players;
+        println!("players: {players:?}");
+        assert_eq!(3, players.len());
+        assert_eq!(2, players.iter().filter(|p| !p.is_observer()).count());
+        assert_eq!(1, players.iter().filter(|p| p.is_observer()).count());
+    }
+
+    #[test]
     fn parse_all() {
         let start = SystemTime::now();
         let mut games = parse_replays("./replays/");
         games.extend(parse_replays("./replays-ignore"));
         for game in &games {
             println!("{}", game);
+        }
+        let nb = games.len();
+        let elapsed = start.elapsed().unwrap().as_millis();
+        println!(
+            "{} games in: {:?}ms (avg: {}ms)",
+            nb,
+            elapsed,
+            elapsed / (nb as u128)
+        );
+    }
+
+    #[test]
+    fn parse_w3info() {
+        let start = SystemTime::now();
+        let games = parse_replays("./replays-w3info/");
+        for game in &games {
+            println!("{game}");
         }
         let nb = games.len();
         let elapsed = start.elapsed().unwrap().as_millis();

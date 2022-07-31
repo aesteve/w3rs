@@ -52,7 +52,7 @@ impl LeaveGameBlock {
 
 #[derive(Debug)]
 pub struct TimeSlotBlock {
-    byte_count: u16,
+    // byte_count: u16,
     pub time_increment: u16,
     pub command: Option<CommandData>,
 }
@@ -106,7 +106,7 @@ fn time_slot_block(input: &[u8]) -> IResult<&[u8], GameBlock> {
     Ok((
         rest,
         GameBlock::TimeSlot(TimeSlotBlock {
-            byte_count,
+            // byte_count,
             time_increment,
             command: command.1,
         }),
