@@ -19,7 +19,7 @@ mod utils;
 #[cfg(test)]
 mod tests {
     use crate::blocks::gameblock::GameBlock;
-    use crate::game::{Game, GameOutcome};
+    use crate::game::{Game, GameOutcome, GameType};
     use humantime::format_duration;
     use itertools::Itertools;
     use std::fs;
@@ -38,7 +38,6 @@ mod tests {
     #[test]
     fn parse_ts_blocks() {
         let game = Game::parse(Path::new("./replays-ignore/Replay_2020_06_29_0026.w3g"));
-        println!("Blocks:");
         let mut time = Duration::from_millis(0);
         for block in &game.blocks {
             if let GameBlock::TimeSlot(ts_block) = block {
@@ -56,7 +55,6 @@ mod tests {
             "./replays-w3info/3210760876_FeaR_Kiosuke_Northern Isles.w3g",
         ));
         let players = game.players;
-        println!("players: {players:?}");
         assert_eq!(3, players.len());
         assert_eq!(2, players.iter().filter(|p| !p.is_observer()).count());
         assert_eq!(1, players.iter().filter(|p| p.is_observer()).count());
@@ -85,7 +83,10 @@ mod tests {
         let start = SystemTime::now();
         let games = parse_replays("./replays-w3info/");
         for game in &games {
-            println!("{game}");
+            let (_, game_type) = game.game_type();
+            assert!(matches!(game_type, GameType::OneOnOne));
+            let outcome = game.outcome();
+            assert!(matches!(outcome, GameOutcome::Winner(_)));
         }
         let nb = games.len();
         let elapsed = start.elapsed().unwrap().as_millis();
