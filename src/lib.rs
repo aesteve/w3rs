@@ -18,19 +18,67 @@ pub mod unit;
 mod utils;
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     use crate::blocks::gameblock::GameBlock;
     use crate::game::{Game, GameOutcome, GameType};
     use humantime::format_duration;
     use itertools::Itertools;
+    use std::ffi::OsStr;
     use std::fs;
-    use std::path::Path;
+    use std::path::{Path, PathBuf};
     use std::time::{Duration, SystemTime};
 
-    fn parse_replays<P: AsRef<Path>>(path: P) -> Vec<Game> {
-        fs::read_dir(path)
+    pub(crate) fn crate_root() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+    }
+
+    pub(crate) fn replays_ignore_dir() -> PathBuf {
+        let mut path = crate_root();
+        path.push("replays-ignore");
+        path
+    }
+
+    pub(crate) fn replays_dir() -> PathBuf {
+        let mut path = crate_root();
+        path.push("replays");
+        path
+    }
+
+    pub(crate) fn replays_w3info_dir() -> PathBuf {
+        let mut path = crate_root();
+        path.push("w3info");
+        path.push("replays-w3info");
+        path
+    }
+
+    pub(crate) fn replay(name: &str) -> PathBuf {
+        let mut dir = replays_dir();
+        dir.push(name);
+        dir
+    }
+
+    pub(crate) fn replay_bytes(name: &str) -> Vec<u8> {
+        fs::read(replay(name)).unwrap_or_else(|_| panic!("Could not read {}", name))
+    }
+
+    pub(crate) fn w3info_replay(name: &str) -> PathBuf {
+        let mut dir = replays_w3info_dir();
+        dir.push(name);
+        dir
+    }
+
+    pub(crate) fn ignored_replay(name: &str) -> PathBuf {
+        let mut dir = replays_ignore_dir();
+        dir.push(name);
+        dir
+    }
+
+    fn parse_replays<P: AsRef<Path>>(dir: P) -> Vec<Game> {
+        fs::read_dir(dir)
             .expect("Replays dir should exist")
-            .map(|f| f.unwrap().path())
+            .filter_map(|f| f.ok())
+            .map(|f| f.path())
+            .filter(|f| f.exists() && f.is_file() && f.extension().unwrap() == OsStr::new("w3g"))
             .sorted()
             .map(Game::parse)
             .collect()
@@ -38,7 +86,7 @@ mod tests {
 
     #[test]
     fn parse_ts_blocks() {
-        let game = Game::parse(Path::new("./replays-ignore/Replay_2020_06_29_0026.w3g"));
+        let game = Game::parse(ignored_replay("Replay_2020_06_29_0026.w3g"));
         let mut time = Duration::from_millis(0);
         for block in &game.blocks {
             if let GameBlock::TimeSlot(ts_block) = block {
@@ -52,9 +100,7 @@ mod tests {
 
     #[test]
     fn parse_players_properly() {
-        let game = Game::parse(Path::new(
-            "./replays-w3info/3210760876_FeaR_Kiosuke_Northern Isles.w3g",
-        ));
+        let game = Game::parse(w3info_replay("3210760876_FeaR_Kiosuke_Northern Isles.w3g"));
         let players = game.players;
         assert_eq!(3, players.len());
         assert_eq!(2, players.iter().filter(|p| !p.is_observer()).count());
@@ -64,8 +110,8 @@ mod tests {
     #[test]
     fn parse_all() {
         let start = SystemTime::now();
-        let mut games = parse_replays("./replays/");
-        games.extend(parse_replays("./replays-ignore"));
+        let mut games = parse_replays(replays_dir());
+        games.extend(parse_replays(replays_ignore_dir()));
         for game in &games {
             println!("{}", game);
         }
@@ -82,7 +128,7 @@ mod tests {
     #[test]
     fn parse_w3info() {
         let start = SystemTime::now();
-        let games = parse_replays("./replays-w3info/");
+        let games = parse_replays(replays_w3info_dir());
         for game in &games {
             let (_, game_type) = game.game_type();
             assert!(matches!(game_type, GameType::OneOnOne));
@@ -101,8 +147,7 @@ mod tests {
 
     #[test]
     fn test_outcome_one_on_one() {
-        let one_on_one_replay = Path::new("./replays-ignore/Replay_2020_06_29_0026.w3g");
-        let one_on_one_game = Game::parse(one_on_one_replay);
+        let one_on_one_game = Game::parse(ignored_replay("Replay_2020_06_29_0026.w3g"));
         assert_eq!(GameOutcome::Winner(0), one_on_one_game.outcome())
     }
 }

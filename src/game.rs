@@ -321,13 +321,13 @@ mod tests {
     use crate::display::player::player_msg_color;
     use crate::event::{Event, GameEvent};
     use crate::game::{non_noisy, Game};
+    use crate::tests::ignored_replay;
     use colored::{Color, Colorize};
     use humantime::format_duration;
-    use std::path::Path;
 
     #[test]
     fn parse_replay_events() {
-        let game = Game::parse(Path::new("./replays-ignore/vs_HAPPY_1_TS.w3g"));
+        let game = Game::parse(ignored_replay("vs_HAPPY_1_TS.w3g"));
         println!("Analyzed game:");
         println!("{}", game);
         let events = game.events();

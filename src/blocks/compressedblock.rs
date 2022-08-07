@@ -54,12 +54,12 @@ fn compressed_data_block(input: &[u8]) -> IResult<&[u8], CompressedDataBlock> {
 mod tests {
     use crate::blocks::compressedblock::{compressed_data_blocks, deflate_game};
     use crate::metadata::replay::parse_header;
-    use nom::AsBytes;
+    use crate::tests::replay_bytes;
 
     #[test]
     fn data_blocks_test() {
-        let file = include_bytes!("../../replays/reforged2010.w3g").as_bytes();
-        let (rest, headers) = parse_header(&file[..]).unwrap();
+        let file = replay_bytes("reforged2010.w3g");
+        let (rest, headers) = parse_header(&file).unwrap();
         let (rest, blocks) = compressed_data_blocks(rest).unwrap();
         assert_eq!(0, rest.len());
         assert_eq!(headers.compressed_data_block_count as usize, blocks.len());

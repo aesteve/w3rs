@@ -94,6 +94,8 @@ mod tests {
     use crate::blocks::compressedblock::{compressed_data_blocks, deflate_game};
     use crate::metadata::game::parse_game_metadata;
     use crate::metadata::replay::parse_header;
+    use crate::tests::{replays_dir, replays_ignore_dir, replays_w3info_dir};
+    use std::ffi::OsStr;
     use std::fs;
     use std::fs::DirEntry;
     use std::path::Path;
@@ -107,10 +109,11 @@ mod tests {
         assert!(res.is_ok());
     }
 
-    fn replays_metadata_is_parsed<P: AsRef<Path>>(path: P) {
-        for file in fs::read_dir(path)
+    fn replays_metadata_is_parsed<P: AsRef<Path>>(dir: P) {
+        for file in fs::read_dir(dir)
             .expect("Replays dir should exist")
             .map(|m| m.unwrap())
+            .filter(|f| f.path().is_file() && f.path().extension().unwrap() == OsStr::new("w3g"))
         {
             metadata_parsed_properly(file);
         }
@@ -118,8 +121,8 @@ mod tests {
 
     #[test]
     fn data_blocks_test() {
-        replays_metadata_is_parsed("./replays/");
-        replays_metadata_is_parsed("./replays-ignore/");
-        replays_metadata_is_parsed("./replays-w3info/")
+        replays_metadata_is_parsed(replays_dir());
+        replays_metadata_is_parsed(replays_ignore_dir());
+        replays_metadata_is_parsed(replays_w3info_dir())
     }
 }

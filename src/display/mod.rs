@@ -13,7 +13,6 @@ pub mod player;
 pub mod race;
 
 pub fn live_display(game: &Game) {
-    println!("{game}");
     let events = game.events();
     let mut last_time = Duration::from_millis(0);
     for event in events.iter().filter(non_noisy).collect::<Vec<&GameEvent>>() {
@@ -46,13 +45,12 @@ pub fn live_display(game: &Game) {
 mod tests {
     use crate::display::live_display;
     use crate::game::Game;
-    use std::path::Path;
+    use crate::tests::w3info_replay;
 
     #[test]
+    #[ignore]
     fn live_display_w3info() {
-        let game = Game::parse(Path::new(
-            "./replays-w3info/3210760876_FeaR_Kiosuke_Northern Isles.w3g",
-        ));
+        let game = Game::parse(w3info_replay("3210760876_FeaR_Kiosuke_Northern Isles.w3g"));
         live_display(&game);
     }
 }
